@@ -1,0 +1,70 @@
+# yii3-settings-db
+
+## Install
+
+```bash
+composer require rasuvaeff/yii3-settings-db
+```
+
+## Rules
+
+- Implements `Rasuvaeff\Yii3Settings\WritableSettingsProvider`.
+- `has(key)` means "key is declared in definitions", not "row exists in DB".
+- `get/set/remove` reject unknown keys with `UnknownSettingException`.
+- Missing DB row falls back to `SettingDefinition::default`.
+- Invalid stored int/float/array data throws `InvalidSettingRowException`.
+- Yii3 DI wiring must keep config `values` working via `ChainSettingsProvider([Db, Config])`.
+- Cache is not built into this package; use core `CachedSettingsProvider(inner: ..., definitions: ...)`.
+- Ships a `yiisoft/db-migration` migration in `migrations/`; default table name is `settings`.
+
+## API
+
+### DbSettingsProvider
+
+```php
+use Rasuvaeff\Yii3Settings\SettingDefinition;
+use Rasuvaeff\Yii3Settings\SettingType;
+use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
+
+$definitions = [
+    'mail.from' => new SettingDefinition(key: 'mail.from', type: SettingType::String, default: 'noreply@example.com'),
+    'orders.max_items' => new SettingDefinition(key: 'orders.max_items', type: SettingType::Int, default: 100),
+    'mail.enabled' => new SettingDefinition(key: 'mail.enabled', type: SettingType::Bool, default: true),
+    'app.features' => new SettingDefinition(key: 'app.features', type: SettingType::Array, default: ['search' => true]),
+];
+
+$provider = new DbSettingsProvider(
+    db: $connection,
+    definitions: $definitions,
+    table: 'settings',
+);
+
+$provider->has('mail.from');
+$provider->get('mail.from');
+$provider->set('mail.from', 'admin@example.com');
+$provider->set('orders.max_items', '250');
+$provider->remove('mail.from');
+```
+
+### InvalidSettingRowException
+
+```php
+use Rasuvaeff\Yii3SettingsDb\Exception\InvalidSettingRowException;
+```
+
+Thrown when a DB row is missing the `value` column, contains malformed JSON for an array setting, or contains data that cannot be parsed into the declared setting type.
+
+### Yii3 DI config
+
+```php
+return [
+    'rasuvaeff/yii3-settings-db' => [
+        'table' => 'settings',
+    ],
+];
+```
+
+The shipped `config/di.php` binds:
+- `WritableSettingsProvider::class` → `DbSettingsProvider`
+- `SettingsProvider::class` → `ChainSettingsProvider([Db, Config])`
+- `Settings::class` → facade with normalized definitions + `strictMode`
