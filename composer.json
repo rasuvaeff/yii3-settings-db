@@ -34,9 +34,13 @@
         "maglnet/composer-require-checker": "^4.17",
         "phpunit/phpunit": "^11.5",
         "psalm/plugin-phpunit": "^0.19",
+        "psr/simple-cache": "^3.0",
         "rector/rector": "^2.4",
         "vimeo/psalm": "^6.16",
         "yiisoft/db-sqlite": "^1.2"
+    },
+    "suggest": {
+        "psr/simple-cache": "For wrapping reads in the core CachedSettingsProvider (PSR-16)"
     },
     "autoload": {
         "psr-4": {

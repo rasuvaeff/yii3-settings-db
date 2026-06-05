@@ -49,10 +49,14 @@ make test
 ## Invariants & gotchas
 
 - `has()` means "key is declared in definitions", not "row exists in DB".
-- `get()` falls back to `SettingDefinition::default` when no DB row exists.
+- `get()` with no DB row delegates to the optional `fallback` provider; with no
+  fallback it returns `SettingDefinition::default`.
 - `set()` and `remove()` still validate the key against definitions.
-- Explicit config `values` must stay working in Yii3 integration via
-  `ChainSettingsProvider([Db, Config])`.
+- Explicit config `values` must stay working in Yii3 integration: `di.php` builds
+  `DbSettingsProvider` with a `ConfigSettingsProvider` fallback (precedence: DB row
+  > config value > default). Do **not** reintroduce `ChainSettingsProvider([Db, Config])` —
+  the DB provider's `has()` is always true for defined keys, so the chain would
+  shadow the config provider and silently drop `values`.
 - Reserved SQL words: raw SQL must quote `"key"` and `"value"`.
 - Row mapping is strict for stored ints/floats/arrays; malformed data throws
   `InvalidSettingRowException`.

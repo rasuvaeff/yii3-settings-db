@@ -8,7 +8,7 @@
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/yii3-settings-db/php)](https://packagist.org/packages/rasuvaeff/yii3-settings-db)
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-settings-db.svg)](LICENSE.md)
 
-Database-backed writable settings provider for Yii3 applications. Implements `WritableSettingsProvider` from `rasuvaeff/yii3-settings`, persists runtime overrides in a DB table, and preserves config `values` via `ChainSettingsProvider([Db, Config])` in Yii3 DI wiring.
+Database-backed writable settings provider for Yii3 applications. Implements `WritableSettingsProvider` from `rasuvaeff/yii3-settings`, persists runtime overrides in a DB table, and preserves config `values` via an optional fallback provider in the Yii3 DI wiring.
 
 > Using an AI coding assistant? [llms.txt](llms.txt) has a compact API reference you can feed into the model.
 
@@ -55,10 +55,18 @@ $settings->string('mail.from');
 $settings->int('orders.max_items');
 ```
 
+The constructor accepts an optional `fallback` (`SettingsProvider`). When a key
+has no stored DB row, `get()` delegates to the fallback (which must recognize the
+same keys) instead of returning the definition default — this is how config
+`values` are preserved in the DI wiring below. Without a fallback, a missing row
+resolves to `SettingDefinition::default`.
+
 ### Yii3 config-plugin wiring
 
 The package ships `config/params.php` and `config/di.php` via config-plugin.
-The default wiring keeps explicit config `values` working by chaining DB first and config second.
+The default wiring keeps explicit config `values` working: `DbSettingsProvider`
+is built with a `ConfigSettingsProvider` fallback, so a key without a stored DB
+row resolves to its config `value` (and only then to the definition default).
 
 ```php
 return [

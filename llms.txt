@@ -11,9 +11,9 @@ composer require rasuvaeff/yii3-settings-db
 - Implements `Rasuvaeff\Yii3Settings\WritableSettingsProvider`.
 - `has(key)` means "key is declared in definitions", not "row exists in DB".
 - `get/set/remove` reject unknown keys with `UnknownSettingException`.
-- Missing DB row falls back to `SettingDefinition::default`.
+- Missing DB row → optional `fallback` provider; if none, `SettingDefinition::default`.
 - Invalid stored int/float/array data throws `InvalidSettingRowException`.
-- Yii3 DI wiring must keep config `values` working via `ChainSettingsProvider([Db, Config])`.
+- Yii3 DI wiring keeps config `values` working by passing a `ConfigSettingsProvider` as the `DbSettingsProvider` fallback (precedence: DB row > config value > default).
 - Cache is not built into this package; use core `CachedSettingsProvider(inner: ..., definitions: ...)`.
 - Ships a `yiisoft/db-migration` migration in `migrations/`; default table name is `settings`.
 
@@ -37,6 +37,7 @@ $provider = new DbSettingsProvider(
     db: $connection,
     definitions: $definitions,
     table: 'settings',
+    fallback: null, // optional SettingsProvider for keys without a stored row
 );
 
 $provider->has('mail.from');
@@ -65,6 +66,6 @@ return [
 ```
 
 The shipped `config/di.php` binds:
-- `WritableSettingsProvider::class` → `DbSettingsProvider`
-- `SettingsProvider::class` → `ChainSettingsProvider([Db, Config])`
+- `WritableSettingsProvider::class` → `DbSettingsProvider` with a `ConfigSettingsProvider` fallback (carries config `values`)
+- `SettingsProvider::class` → the same `DbSettingsProvider` instance
 - `Settings::class` → facade with normalized definitions + `strictMode`

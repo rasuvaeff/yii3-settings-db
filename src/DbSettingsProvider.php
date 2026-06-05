@@ -7,6 +7,7 @@ namespace Rasuvaeff\Yii3SettingsDb;
 use Rasuvaeff\Yii3Settings\ConfigSettingsProvider;
 use Rasuvaeff\Yii3Settings\Exception\UnknownSettingException;
 use Rasuvaeff\Yii3Settings\SettingDefinition;
+use Rasuvaeff\Yii3Settings\SettingsProvider;
 use Rasuvaeff\Yii3Settings\WritableSettingsProvider;
 use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Query\Query;
@@ -26,11 +27,14 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider
     /**
      * @param array<string, SettingDefinition|array{type: string, default?: mixed}> $definitions
      * @param non-empty-string $table
+     * @param SettingsProvider|null $fallback source for keys without a stored DB row
+     *                                         (e.g. config `values`); must recognize the same keys
      */
     public function __construct(
         private ConnectionInterface $db,
         array $definitions = [],
         private string $table = 'settings',
+        private ?SettingsProvider $fallback = null,
     ) {
         $this->definitions = ConfigSettingsProvider::normalizeDefinitions($definitions);
         $this->rowMapper = new SettingRowMapper();
@@ -52,7 +56,11 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider
             ->one();
 
         if (!\is_array($row)) {
-            return $definition->default;
+            if ($this->fallback === null) {
+                return $definition->default;
+            }
+
+            return $this->fallback->get($key);
         }
 
         return $this->rowMapper->toValue(row: $row, definition: $definition);

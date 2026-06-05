@@ -8,8 +8,10 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Settings\CachedSettingsProvider;
+use Rasuvaeff\Yii3Settings\ConfigSettingsProvider;
 use Rasuvaeff\Yii3Settings\Exception\UnknownSettingException;
 use Rasuvaeff\Yii3Settings\SettingDefinition;
+use Rasuvaeff\Yii3Settings\SettingsProvider;
 use Rasuvaeff\Yii3Settings\SettingType;
 use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
 use Rasuvaeff\Yii3SettingsDb\Exception\InvalidSettingRowException;
@@ -125,6 +127,40 @@ final class SqliteIntegrationTest extends TestCase
         $this->assertSame(['search' => true, 'beta' => ['a', 'b']], $provider->get('app.features'));
     }
 
+
+    #[Test]
+    public function getReturnsFallbackValueWhenNoStoredRow(): void
+    {
+        $provider = $this->provider(fallback: new ConfigSettingsProvider(
+            definitions: $this->definitions,
+            values: ['mail.from' => 'config@example.com'],
+        ));
+
+        $this->assertSame('config@example.com', $provider->get('mail.from'));
+    }
+
+    #[Test]
+    public function getFallsBackToDefinitionDefaultWhenFallbackHasNoValue(): void
+    {
+        $provider = $this->provider(fallback: new ConfigSettingsProvider(
+            definitions: $this->definitions,
+            values: [],
+        ));
+
+        $this->assertSame('noreply@example.com', $provider->get('mail.from'));
+    }
+
+    #[Test]
+    public function storedRowTakesPrecedenceOverFallback(): void
+    {
+        $provider = $this->provider(fallback: new ConfigSettingsProvider(
+            definitions: $this->definitions,
+            values: ['mail.from' => 'config@example.com'],
+        ));
+        $provider->set('mail.from', 'db@example.com');
+
+        $this->assertSame('db@example.com', $provider->get('mail.from'));
+    }
 
     #[Test]
     public function getReadsRequestedKeyWhenAnotherRowExists(): void
@@ -266,12 +302,13 @@ final class SqliteIntegrationTest extends TestCase
     /**
      * @param non-empty-string $table
      */
-    private function provider(string $table = 'settings'): DbSettingsProvider
+    private function provider(string $table = 'settings', ?SettingsProvider $fallback = null): DbSettingsProvider
     {
         return new DbSettingsProvider(
             db: $this->db,
             definitions: $this->definitions,
             table: $table,
+            fallback: $fallback,
         );
     }
 

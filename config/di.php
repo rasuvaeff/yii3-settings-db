@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Rasuvaeff\Yii3Settings\ChainSettingsProvider;
 use Rasuvaeff\Yii3Settings\ConfigSettingsProvider;
 use Rasuvaeff\Yii3Settings\Settings;
 use Rasuvaeff\Yii3Settings\SettingsProvider;
@@ -17,15 +16,12 @@ return [
         db: $db,
         definitions: $params['rasuvaeff/yii3-settings']['definitions'] ?? [],
         table: ($params['rasuvaeff/yii3-settings-db'] ?? [])['table'] ?? 'settings',
-    ),
-    SettingsProvider::class => static function (WritableSettingsProvider $dbProvider) use ($params): SettingsProvider {
-        $configProvider = new ConfigSettingsProvider(
+        fallback: new ConfigSettingsProvider(
             definitions: $params['rasuvaeff/yii3-settings']['definitions'] ?? [],
             values: $params['rasuvaeff/yii3-settings']['values'] ?? [],
-        );
-
-        return new ChainSettingsProvider(providers: [$dbProvider, $configProvider]);
-    },
+        ),
+    ),
+    SettingsProvider::class => static fn (WritableSettingsProvider $provider): SettingsProvider => $provider,
     Settings::class => static fn (SettingsProvider $provider) => new Settings(
         provider: $provider,
         definitions: ConfigSettingsProvider::normalizeDefinitions(
