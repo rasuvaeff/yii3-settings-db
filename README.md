@@ -148,12 +148,23 @@ $cached->clear('mail.from');
 ## Examples
 
 See [examples/](examples/) for runnable scripts.
+Examples are expected to execute without fatal errors and stay aligned with the
+documented public API.
 
 ## Development
 
 ```bash
-make install && make build
+make install
+make build
+make cs-fix
+make test
+make test-coverage
+make mutation
+make release-check
 ```
+
+`make test-coverage` and `make mutation` bootstrap `pcov` inside the
+`composer:2` container because the base image has no coverage driver.
 
 ## License
 
