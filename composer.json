@@ -23,7 +23,8 @@
     },
     "require": {
         "php": "^8.3",
-        "rasuvaeff/yii3-settings": "^1.0",
+        "ext-sodium": "*",
+        "rasuvaeff/yii3-settings": "^1.1@dev",
         "yiisoft/db": "^1.2",
         "yiisoft/db-migration": "^1.2"
     },
@@ -42,6 +43,15 @@
     "suggest": {
         "psr/simple-cache": "For wrapping reads in the core CachedSettingsProvider (PSR-16)"
     },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../yii3-settings",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
     "autoload": {
         "psr-4": {
             "Rasuvaeff\\Yii3SettingsDb\\": "src/"
