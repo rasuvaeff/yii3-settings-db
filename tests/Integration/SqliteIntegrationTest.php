@@ -9,10 +9,14 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Settings\CachedSettingsProvider;
 use Rasuvaeff\Yii3Settings\ConfigSettingsProvider;
+use Rasuvaeff\Yii3Settings\Crypto\Cipher;
 use Rasuvaeff\Yii3Settings\Exception\UnknownSettingException;
 use Rasuvaeff\Yii3Settings\SettingDefinition;
+use Rasuvaeff\Yii3Settings\SettingsInspector;
 use Rasuvaeff\Yii3Settings\SettingsProvider;
 use Rasuvaeff\Yii3Settings\SettingType;
+use Rasuvaeff\Yii3SettingsDb\Crypto\KeyRing;
+use Rasuvaeff\Yii3SettingsDb\Crypto\SodiumCipher;
 use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
 use Rasuvaeff\Yii3SettingsDb\Exception\InvalidSettingRowException;
 use Rasuvaeff\Yii3SettingsDb\Tests\ArrayCache;
@@ -299,6 +303,185 @@ final class SqliteIntegrationTest extends TestCase
         $this->assertSame('second@example.com', $cached->get('mail.from'));
     }
 
+    #[Test]
+    public function constructorThrowsWhenSecretDefWithoutCipher(): void
+    {
+        $defs = $this->definitionsWithSecret();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Cipher is required when secret definitions exist');
+
+        new DbSettingsProvider(db: $this->db, definitions: $defs);
+    }
+
+    #[Test]
+    public function secretSetAndGetRoundtrip(): void
+    {
+        $provider = $this->providerWithCipher();
+        $provider->set('billing.stripe_key', 'sk_live_test123');
+
+        $this->assertSame('sk_live_test123', $provider->get('billing.stripe_key'));
+    }
+
+    #[Test]
+    public function secretValueIsEncryptedAtRest(): void
+    {
+        $provider = $this->providerWithCipher();
+        $provider->set('billing.stripe_key', 'sk_live_test123');
+
+        $stored = $this->queryStoredValue('billing.stripe_key');
+        $this->assertNotNull($stored);
+        $this->assertStringStartsWith('enc:', $stored);
+        $this->assertStringNotContainsString('sk_live_test123', $stored);
+    }
+
+    #[Test]
+    public function secretGetReturnsDefaultWhenNoStoredRow(): void
+    {
+        $provider = $this->providerWithCipher();
+
+        $this->assertNull($provider->get('billing.stripe_key'));
+    }
+
+    #[Test]
+    public function nonSecretKeysUnaffectedByCipher(): void
+    {
+        $provider = $this->providerWithCipher();
+        $provider->set('mail.from', 'admin@example.com');
+
+        $stored = $this->queryStoredValue('mail.from');
+        $this->assertNotNull($stored);
+        $this->assertStringNotContainsString('enc:', $stored);
+        $this->assertSame('admin@example.com', $provider->get('mail.from'));
+    }
+
+    #[Test]
+    public function describeForDbOverride(): void
+    {
+        $provider = $this->providerWithCipher();
+        $provider->set('mail.from', 'admin@example.com');
+
+        $state = $provider->describe(key: 'mail.from');
+
+        $this->assertSame('mail.from', $state->key);
+        $this->assertSame('admin@example.com', $state->effectiveValue);
+        $this->assertTrue($state->hasStoredOverride);
+        $this->assertSame('db', $state->source);
+        $this->assertFalse($state->isSecret);
+        $this->assertTrue($state->isWritable);
+    }
+
+    #[Test]
+    public function describeForConfigFallback(): void
+    {
+        $defs = $this->definitionsWithSecret();
+        $provider = new DbSettingsProvider(
+            db: $this->db,
+            definitions: $defs,
+            fallback: new ConfigSettingsProvider(
+                definitions: $defs,
+                values: ['mail.from' => 'config@example.com'],
+            ),
+            cipher: new SodiumCipher(keyRing: new KeyRing(
+                keys: ['key-2025' => random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES)],
+                activeKeyId: 'key-2025',
+            )),
+        );
+
+        $state = $provider->describe(key: 'mail.from');
+
+        $this->assertSame('config', $state->source);
+        $this->assertSame('config@example.com', $state->effectiveValue);
+        $this->assertFalse($state->hasStoredOverride);
+    }
+
+    #[Test]
+    public function describeForDefaultSource(): void
+    {
+        $provider = $this->providerWithCipher();
+
+        $state = $provider->describe(key: 'mail.from');
+
+        $this->assertSame('default', $state->source);
+        $this->assertSame('noreply@example.com', $state->effectiveValue);
+        $this->assertFalse($state->hasStoredOverride);
+    }
+
+    #[Test]
+    public function describeMasksSecretValue(): void
+    {
+        $provider = $this->providerWithCipher();
+        $provider->set('billing.stripe_key', 'sk_live_test123');
+
+        $state = $provider->describe(key: 'billing.stripe_key');
+
+        $this->assertTrue($state->isSecret);
+        $this->assertTrue($state->hasStoredOverride);
+        $this->assertSame('db', $state->source);
+        $this->assertNull($state->effectiveValue);
+    }
+
+    #[Test]
+    public function describeSecretWithoutOverride(): void
+    {
+        $provider = $this->providerWithCipher();
+
+        $state = $provider->describe(key: 'billing.stripe_key');
+
+        $this->assertTrue($state->isSecret);
+        $this->assertFalse($state->hasStoredOverride);
+        $this->assertNull($state->effectiveValue);
+    }
+
+    #[Test]
+    public function reencryptSecretsEncryptsPlaintextValue(): void
+    {
+        $this->insertRawRow(key: 'billing.stripe_key', value: 'sk_old_plaintext');
+
+        $provider = $this->providerWithCipher();
+        $count = $provider->reencryptSecrets();
+
+        $this->assertSame(1, $count);
+
+        $stored = $this->queryStoredValue('billing.stripe_key');
+        $this->assertNotNull($stored);
+        $this->assertStringStartsWith('enc:', $stored);
+
+        $this->assertSame('sk_old_plaintext', $provider->get('billing.stripe_key'));
+    }
+
+    #[Test]
+    public function reencryptSecretsSkipsNonSecretKeys(): void
+    {
+        $this->insertRawRow(key: 'mail.from', value: 'admin@example.com');
+        $this->insertRawRow(key: 'orders.max_items', value: '250');
+
+        $provider = $this->providerWithCipher();
+        $count = $provider->reencryptSecrets();
+
+        $this->assertSame(0, $count);
+    }
+
+    #[Test]
+    public function reencryptSecretsSkipsAlreadyEncrypted(): void
+    {
+        $provider = $this->providerWithCipher();
+        $provider->set('billing.stripe_key', 'sk_val');
+
+        $count = $provider->reencryptSecrets();
+
+        $this->assertSame(0, $count);
+        $this->assertSame('sk_val', $provider->get('billing.stripe_key'));
+    }
+
+    #[Test]
+    public function dbSettingsProviderImplementsInspector(): void
+    {
+        $provider = $this->providerWithCipher();
+
+        $this->assertInstanceOf(SettingsInspector::class, $provider);
+    }
+
     /**
      * @param non-empty-string $table
      */
@@ -310,6 +493,54 @@ final class SqliteIntegrationTest extends TestCase
             table: $table,
             fallback: $fallback,
         );
+    }
+
+    private function providerWithCipher(?Cipher $cipher = null): DbSettingsProvider
+    {
+        $defs = $this->definitionsWithSecret();
+
+        if ($cipher === null) {
+            $keyRing = new KeyRing(
+                keys: ['key-2025' => random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES)],
+                activeKeyId: 'key-2025',
+            );
+            $cipher = new SodiumCipher(keyRing: $keyRing);
+        }
+
+        return new DbSettingsProvider(
+            db: $this->db,
+            definitions: $defs,
+            cipher: $cipher,
+        );
+    }
+
+    /**
+     * @return array<string, SettingDefinition>
+     */
+    private function definitionsWithSecret(): array
+    {
+        $defs = $this->definitions;
+        $defs['billing.stripe_key'] = new SettingDefinition(key: 'billing.stripe_key', type: SettingType::String, secret: true);
+
+        return $defs;
+    }
+
+    private function queryStoredValue(string $key): ?string
+    {
+        $row = (new \Yiisoft\Db\Query\Query($this->db))
+            ->from('settings')
+            ->select(['value'])
+            ->where(['key' => $key])
+            ->one();
+
+        if (!\is_array($row) || !isset($row['value'])) {
+            return null;
+        }
+
+        /** @var mixed */
+        $value = $row['value'];
+
+        return \is_string($value) ? $value : null;
     }
 
     private function insertRawRow(string $key, string $value): void

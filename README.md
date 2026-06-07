@@ -8,16 +8,19 @@
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/yii3-settings-db/php)](https://packagist.org/packages/rasuvaeff/yii3-settings-db)
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-settings-db.svg)](LICENSE.md)
 
-Database-backed writable settings provider for Yii3 applications. Implements `WritableSettingsProvider` from `rasuvaeff/yii3-settings`, persists runtime overrides in a DB table, and preserves config `values` via an optional fallback provider in the Yii3 DI wiring.
+Database-backed writable settings provider for Yii3 applications. Implements `WritableSettingsProvider` and `SettingsInspector` from `rasuvaeff/yii3-settings`, persists runtime overrides in a DB table, and supports at-rest encryption of secret settings via libsodium (XChaCha20-Poly1305).
 
 > Using an AI coding assistant? [llms.txt](llms.txt) has a compact API reference you can feed into the model.
 
 ## Requirements
 
 - PHP 8.3+
-- `rasuvaeff/yii3-settings` ^1.0
-- `yiisoft/db` ^1.2
-- `yiisoft/db-migration` ^1.2
+- `ext-sodium` (bundled with PHP 7.2+)
+- `rasuvaeff/yii3-settings` ^1.1
+- `yiisoft/db` ^2.0
+- `yiisoft/db-migration` ^2.0
+- a PSR-16 cache implementation — required transitively by `yiisoft/db` 2.0
+  (e.g. `yiisoft/cache`)
 
 ## Installation
 
@@ -130,20 +133,74 @@ $cached->get('mail.from');
 $cached->clear('mail.from');
 ```
 
+### Secret settings
+
+```php
+use Rasuvaeff\Yii3Settings\SettingDefinition;
+use Rasuvaeff\Yii3Settings\SettingType;
+use Rasuvaeff\Yii3SettingsDb\Crypto\KeyRing;
+use Rasuvaeff\Yii3SettingsDb\Crypto\SodiumCipher;
+
+$keyRing = new KeyRing(
+    keys: ['key-2025' => sodium_crypto_aead_xchacha20poly1305_ietf_keygen()],
+    activeKeyId: 'key-2025',
+);
+$cipher = new SodiumCipher(keyRing: $keyRing);
+
+$definitions = [
+    'billing.stripe_key' => new SettingDefinition(key: 'billing.stripe_key', type: SettingType::String, secret: true),
+    'mail.from' => new SettingDefinition(key: 'mail.from', type: SettingType::String, default: 'noreply@example.com'),
+];
+
+$provider = new DbSettingsProvider(db: $db, definitions: $definitions, cipher: $cipher);
+
+$provider->set('billing.stripe_key', 'sk_live_xxx');
+// Stored as enc:vkey-2025:... in DB — plaintext never at rest.
+
+$provider->get('billing.stripe_key'); // 'sk_live_xxx' (transparent decrypt)
+```
+
+### Settings inspector
+
+```php
+$state = $provider->describe(key: 'billing.stripe_key');
+$state->key;               // 'billing.stripe_key'
+$state->hasStoredOverride; // true
+$state->source;            // 'db', 'config', or 'default'
+$state->isSecret;          // true — value is masked (null)
+$state->isWritable;        // true
+```
+
+### Key rotation
+
+```php
+$count = $provider->reencryptSecrets();
+// Decrypts all stored secret values with their current key,
+// re-encrypts with the active key. Plaintext values (without enc: prefix)
+// are encrypted in-place. Returns count of re-encrypted keys.
+```
+
 ### Public API
 
 | Class | Description |
 |---|---|
-| `DbSettingsProvider` | DB-backed implementation of `WritableSettingsProvider` |
-| `InvalidSettingRowException` | Thrown when a stored row cannot be converted to the declared setting type |
+| `DbSettingsProvider` | DB-backed `WritableSettingsProvider` + `SettingsInspector` |
+| `KeyRing` | Key management with versioning and active key |
+| `SodiumCipher` | XChaCha20-Poly1305 encryption via libsodium |
+| `InvalidSettingRowException` | Stored row type mismatch |
 
 ## Security
 
-- Unknown keys are rejected: `get()`, `set()`, and `remove()` throw `UnknownSettingException` if the key is not declared in `definitions`.
-- DB values are normalized through the declared `SettingDefinition`; malformed stored ints/floats/arrays throw `InvalidSettingRowException` instead of silently coercing invalid payloads.
+- Unknown keys are rejected: `get()`, `set()`, and `remove()` throw `UnknownSettingException`.
+- DB values are normalized through `SettingDefinition`; malformed ints/floats/arrays throw `InvalidSettingRowException`.
 - User values go through bound parameters in write/delete commands.
-- Table names must be trusted application configuration; do not pass user input as the `table` argument.
-- Raw SQL in tests/examples quotes `"key"` and `"value"` because they are reserved words.
+- Table names must be trusted application configuration.
+- **At-rest encryption**: XChaCha20-Poly1305 AEAD via libsodium. Each value uses a random 24-byte nonce.
+- **AAD binding**: ciphertext is bound to the setting key — a value cannot be moved to a different row.
+- **Fail loud**: tampered data throws `DecryptionException`, never silent fallback.
+- **Key rotation**: keyId in envelope allows reading with old key, writing with active key.
+- **Secret values** do not appear in `SettingState::effectiveValue` (masked as null).
+- Cipher is required when `secret: true` definitions exist — fail-fast at construction.
 
 ## Examples
 
