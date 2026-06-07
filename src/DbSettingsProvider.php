@@ -181,6 +181,7 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
         $count = 0;
 
         foreach ($rows as $row) {
+            /** @var array<array-key, mixed> $row */
             $key = $row['key'];
             if (!\is_string($key) || !isset($this->definitions[$key])) {
                 continue;

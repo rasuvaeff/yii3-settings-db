@@ -17,8 +17,10 @@ Database-backed writable settings provider for Yii3 applications. Implements `Wr
 - PHP 8.3+
 - `ext-sodium` (bundled with PHP 7.2+)
 - `rasuvaeff/yii3-settings` ^1.1
-- `yiisoft/db` ^1.2
-- `yiisoft/db-migration` ^1.2
+- `yiisoft/db` ^2.0
+- `yiisoft/db-migration` ^2.0
+- a PSR-16 cache implementation — required transitively by `yiisoft/db` 2.0
+  (e.g. `yiisoft/cache`)
 
 ## Installation
 
