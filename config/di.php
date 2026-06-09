@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Rasuvaeff\Yii3Settings\ConfigSettingsProvider;
-use Rasuvaeff\Yii3Settings\Settings;
 use Rasuvaeff\Yii3Settings\SettingsProvider;
 use Rasuvaeff\Yii3Settings\WritableSettingsProvider;
 use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
@@ -22,11 +21,4 @@ return [
         ),
     ),
     SettingsProvider::class => static fn (WritableSettingsProvider $provider): SettingsProvider => $provider,
-    Settings::class => static fn (SettingsProvider $provider) => new Settings(
-        provider: $provider,
-        definitions: ConfigSettingsProvider::normalizeDefinitions(
-            $params['rasuvaeff/yii3-settings']['definitions'] ?? [],
-        ),
-        strictMode: $params['rasuvaeff/yii3-settings']['strictMode'] ?? false,
-    ),
 ];

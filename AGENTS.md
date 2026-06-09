@@ -57,6 +57,11 @@ make test
   > config value > default). Do **not** reintroduce `ChainSettingsProvider([Db, Config])` —
   the DB provider's `has()` is always true for defined keys, so the chain would
   shadow the config provider and silently drop `values`.
+- DI ownership: this package binds `WritableSettingsProvider` and `SettingsProvider`
+  only. The `Settings` facade is bound by the core (`rasuvaeff/yii3-settings` ^2.0).
+  Do **not** re-bind `Settings` here — two vendor packages binding it (or
+  `SettingsProvider`) in the `di` group trigger a `yiisoft/config` `Duplicate key`
+  error.
 - Reserved SQL words: raw SQL must quote `"key"` and `"value"`.
 - Row mapping is strict for stored ints/floats/arrays; malformed data throws
   `InvalidSettingRowException`.
