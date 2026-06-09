@@ -28,6 +28,11 @@ Database-backed writable settings provider for Yii3 applications. Implements `Wr
 composer require rasuvaeff/yii3-settings-db
 ```
 
+Requires `rasuvaeff/yii3-settings` ^2.0. With Yii3 config-plugin this package binds
+`SettingsProvider` (and `WritableSettingsProvider`) automatically; the core binds
+the `Settings` facade. Do **not** also bind `SettingsProvider` in your application
+or another backend, or `yiisoft/config` reports a `Duplicate key` error.
+
 ## Usage
 
 ### Basic provider
@@ -67,9 +72,12 @@ resolves to `SettingDefinition::default`.
 ### Yii3 config-plugin wiring
 
 The package ships `config/params.php` and `config/di.php` via config-plugin.
-The default wiring keeps explicit config `values` working: `DbSettingsProvider`
-is built with a `ConfigSettingsProvider` fallback, so a key without a stored DB
-row resolves to its config `value` (and only then to the definition default).
+It binds `WritableSettingsProvider` and `SettingsProvider`; the `Settings` facade
+itself is bound by the core (`rasuvaeff/yii3-settings` ^2.0) from the injected
+`SettingsProvider`. The default wiring keeps explicit config `values` working:
+`DbSettingsProvider` is built with a `ConfigSettingsProvider` fallback, so a key
+without a stored DB row resolves to its config `value` (and only then to the
+definition default).
 
 ```php
 return [
