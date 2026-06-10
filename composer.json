@@ -39,7 +39,8 @@
         "roave/backward-compatibility-check": "^8.0",
         "vimeo/psalm": "^6.16",
         "yiisoft/cache": "^3.2",
-        "yiisoft/db-sqlite": "^2.0"
+        "yiisoft/db-sqlite": "^2.0",
+        "yiisoft/test-support": "^3.0"
     },
     "suggest": {
         "psr/simple-cache": "For wrapping reads in the core CachedSettingsProvider (PSR-16)"

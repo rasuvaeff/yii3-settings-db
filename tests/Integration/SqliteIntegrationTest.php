@@ -20,11 +20,11 @@ use Rasuvaeff\Yii3SettingsDb\Crypto\SodiumCipher;
 use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
 use Rasuvaeff\Yii3SettingsDb\Exception\InvalidSettingRowException;
 use Rasuvaeff\Yii3SettingsDb\Tests\ArrayCache;
-use Rasuvaeff\Yii3SettingsDb\Tests\NullPsr16Cache;
 use Yiisoft\Db\Cache\SchemaCache;
 use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Sqlite\Connection as SqliteConnection;
 use Yiisoft\Db\Sqlite\Driver as SqliteDriver;
+use Yiisoft\Test\Support\SimpleCache\MemorySimpleCache;
 
 #[CoversClass(DbSettingsProvider::class)]
 final class SqliteIntegrationTest extends TestCase
@@ -40,7 +40,7 @@ final class SqliteIntegrationTest extends TestCase
     protected function setUp(): void
     {
         $driver = new SqliteDriver(dsn: 'sqlite::memory:');
-        $schemaCache = new SchemaCache(psrCache: new NullPsr16Cache());
+        $schemaCache = new SchemaCache(psrCache: new MemorySimpleCache());
         $this->db = new SqliteConnection(driver: $driver, schemaCache: $schemaCache);
         $this->db->open();
 
