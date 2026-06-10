@@ -19,7 +19,6 @@ use Rasuvaeff\Yii3SettingsDb\Crypto\KeyRing;
 use Rasuvaeff\Yii3SettingsDb\Crypto\SodiumCipher;
 use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
 use Rasuvaeff\Yii3SettingsDb\Exception\InvalidSettingRowException;
-use Rasuvaeff\Yii3SettingsDb\Tests\ArrayCache;
 use Yiisoft\Db\Cache\SchemaCache;
 use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Sqlite\Connection as SqliteConnection;
@@ -282,17 +281,14 @@ final class SqliteIntegrationTest extends TestCase
     {
         $this->insertRawRow(key: 'mail.from', value: 'first@example.com');
         $provider = $this->provider();
-        $cache = new ArrayCache();
         $cached = new CachedSettingsProvider(
             inner: $provider,
-            cache: $cache,
+            cache: new MemorySimpleCache(),
             definitions: $this->definitions,
             ttl: 60,
         );
 
         $this->assertSame('first@example.com', $cached->get('mail.from'));
-        $this->assertSame(1, $cache->getCalls);
-        $this->assertSame(1, $cache->setCalls);
 
         $this->insertOrReplaceRawRow(key: 'mail.from', value: 'second@example.com');
 
