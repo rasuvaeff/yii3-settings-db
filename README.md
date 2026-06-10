@@ -4,7 +4,6 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/rasuvaeff/yii3-settings-db.svg)](https://packagist.org/packages/rasuvaeff/yii3-settings-db)
 [![Build](https://img.shields.io/github/actions/workflow/status/rasuvaeff/yii3-settings-db/build.yml?branch=master)](https://github.com/rasuvaeff/yii3-settings-db/actions)
 [![Static Analysis](https://img.shields.io/github/actions/workflow/status/rasuvaeff/yii3-settings-db/static-analysis.yml?branch=master&label=psalm)](https://github.com/rasuvaeff/yii3-settings-db/actions)
-[![Coverage](https://codecov.io/gh/rasuvaeff/yii3-settings-db/branch/master/graph/badge.svg)](https://codecov.io/gh/rasuvaeff/yii3-settings-db)
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/yii3-settings-db/php)](https://packagist.org/packages/rasuvaeff/yii3-settings-db)
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-settings-db.svg)](LICENSE.md)
 
