@@ -22,7 +22,7 @@
         "source": "https://github.com/rasuvaeff/yii3-settings-db"
     },
     "require": {
-        "php": "^8.3",
+        "php": "8.1 - 8.5",
         "ext-sodium": "*",
         "rasuvaeff/yii3-settings": "^2.0.1",
         "yiisoft/db": "^2.0",
