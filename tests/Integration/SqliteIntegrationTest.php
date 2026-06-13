@@ -377,7 +377,7 @@ final class SqliteIntegrationTest extends TestCase
         $states = $provider->describeAll();
 
         $this->assertCount(\count($this->definitions), $states);
-        $keys = array_map(static fn ($state): string => $state->key, $states);
+        $keys = array_map(static fn($state): string => $state->key, $states);
         $this->assertSame(array_keys($this->definitions), $keys);
 
         $byKey = [];
