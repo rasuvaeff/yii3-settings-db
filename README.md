@@ -28,9 +28,10 @@ composer require rasuvaeff/yii3-settings-db
 ```
 
 Requires `rasuvaeff/yii3-settings` ^2.0. With Yii3 config-plugin this package binds
-`SettingsProvider` (and `WritableSettingsProvider`) automatically; the core binds
-the `Settings` facade. Do **not** also bind `SettingsProvider` in your application
-or another backend, or `yiisoft/config` reports a `Duplicate key` error.
+`SettingsProvider`, `WritableSettingsProvider` **and `SettingsInspector`**
+automatically (all resolve to the same `DbSettingsProvider` instance); the core
+binds the `Settings` facade. Do **not** also bind these in your application or
+another backend, or `yiisoft/config` reports a `Duplicate key` error.
 
 ## Usage
 
@@ -71,12 +72,17 @@ resolves to `SettingDefinition::default`.
 ### Yii3 config-plugin wiring
 
 The package ships `config/params.php` and `config/di.php` via config-plugin.
-It binds `WritableSettingsProvider` and `SettingsProvider`; the `Settings` facade
-itself is bound by the core (`rasuvaeff/yii3-settings` ^2.0) from the injected
-`SettingsProvider`. The default wiring keeps explicit config `values` working:
-`DbSettingsProvider` is built with a `ConfigSettingsProvider` fallback, so a key
-without a stored DB row resolves to its config `value` (and only then to the
-definition default).
+It binds `WritableSettingsProvider`, `SettingsProvider` and `SettingsInspector`;
+the `Settings` facade itself is bound by the core (`rasuvaeff/yii3-settings` ^2.0)
+from the injected `SettingsProvider`. The default wiring keeps explicit config
+`values` working: `DbSettingsProvider` is built with a `ConfigSettingsProvider`
+fallback, so a key without a stored DB row resolves to its config `value` (and
+only then to the definition default).
+
+Encryption is turnkey: set `rasuvaeff/yii3-settings-db.cipher.key` (a 32-byte key,
+base64) and the wiring builds the `KeyRing` + `SodiumCipher` for you — no manual
+crypto wiring in the host app. When any secret definition exists, the key is
+required (the provider throws at construction otherwise).
 
 ```php
 return [
@@ -91,6 +97,10 @@ return [
     ],
     'rasuvaeff/yii3-settings-db' => [
         'table' => 'settings',
+        'cipher' => [
+            'key_id' => 'main',
+            'key' => $env['SETTINGS_CIPHER_KEY'] ?? null, // 32-byte key, base64
+        ],
     ],
 ];
 ```

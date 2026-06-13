@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Settings\CachedSettingsProvider;
 use Rasuvaeff\Yii3Settings\ConfigSettingsProvider;
 use Rasuvaeff\Yii3Settings\Crypto\Cipher;
+use Rasuvaeff\Yii3Settings\Exception\ReadonlySettingException;
 use Rasuvaeff\Yii3Settings\Exception\UnknownSettingException;
 use Rasuvaeff\Yii3Settings\SettingDefinition;
 use Rasuvaeff\Yii3Settings\SettingsInspector;
@@ -368,6 +369,56 @@ final class SqliteIntegrationTest extends TestCase
     }
 
     #[Test]
+    public function describeAllReturnsStateForEveryDefinition(): void
+    {
+        $provider = $this->provider();
+        $provider->set('mail.from', 'admin@example.com');
+
+        $states = $provider->describeAll();
+
+        $this->assertCount(\count($this->definitions), $states);
+        $keys = array_map(static fn ($state): string => $state->key, $states);
+        $this->assertSame(array_keys($this->definitions), $keys);
+
+        $byKey = [];
+        foreach ($states as $state) {
+            $byKey[$state->key] = $state;
+        }
+        $this->assertSame('db', $byKey['mail.from']->source);
+        $this->assertSame('default', $byKey['orders.max_items']->source);
+    }
+
+    #[Test]
+    public function readonlyDefinitionIsNotWritable(): void
+    {
+        $provider = $this->readonlyProvider();
+
+        $state = $provider->describe(key: 'app.version');
+
+        $this->assertFalse($state->isWritable);
+    }
+
+    #[Test]
+    public function setOnReadonlyThrows(): void
+    {
+        $provider = $this->readonlyProvider();
+
+        $this->expectException(ReadonlySettingException::class);
+
+        $provider->set('app.version', '2.0');
+    }
+
+    #[Test]
+    public function removeOnReadonlyThrows(): void
+    {
+        $provider = $this->readonlyProvider();
+
+        $this->expectException(ReadonlySettingException::class);
+
+        $provider->remove('app.version');
+    }
+
+    #[Test]
     public function describeForConfigFallback(): void
     {
         $defs = $this->definitionsWithSecret();
@@ -507,6 +558,21 @@ final class SqliteIntegrationTest extends TestCase
             db: $this->db,
             definitions: $defs,
             cipher: $cipher,
+        );
+    }
+
+    private function readonlyProvider(): DbSettingsProvider
+    {
+        return new DbSettingsProvider(
+            db: $this->db,
+            definitions: [
+                'app.version' => new SettingDefinition(
+                    key: 'app.version',
+                    type: SettingType::String,
+                    default: '1.0',
+                    readonly: true,
+                ),
+            ],
         );
     }
 

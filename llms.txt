@@ -66,6 +66,7 @@ return [
 ```
 
 The shipped `config/di.php` binds:
-- `WritableSettingsProvider::class` → `DbSettingsProvider` with a `ConfigSettingsProvider` fallback (carries config `values`)
+- `WritableSettingsProvider::class` → `DbSettingsProvider` with a `ConfigSettingsProvider` fallback (carries config `values`); cipher built from `rasuvaeff/yii3-settings-db.cipher` (`key_id`, `key`) when `key` is set
 - `SettingsProvider::class` → the same `DbSettingsProvider` instance
+- `SettingsInspector::class` → the same `DbSettingsProvider` instance (`describe()`, `describeAll()`)
 - `Settings::class` → facade with normalized definitions + `strictMode`

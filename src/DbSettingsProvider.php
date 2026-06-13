@@ -6,6 +6,7 @@ namespace Rasuvaeff\Yii3SettingsDb;
 
 use Rasuvaeff\Yii3Settings\ConfigSettingsProvider;
 use Rasuvaeff\Yii3Settings\Crypto\Cipher;
+use Rasuvaeff\Yii3Settings\Exception\ReadonlySettingException;
 use Rasuvaeff\Yii3Settings\Exception\UnknownSettingException;
 use Rasuvaeff\Yii3Settings\SettingDefinition;
 use Rasuvaeff\Yii3Settings\SettingsInspector;
@@ -97,6 +98,12 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
     {
         $definition = $this->definition($key);
 
+        if ($definition->readonly) {
+            throw new ReadonlySettingException(
+                message: sprintf('Setting "%s" is read-only', $key),
+            );
+        }
+
         if ($definition->isSecret()) {
             assert($this->cipher !== null);
 
@@ -124,7 +131,13 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
     #[\Override]
     public function remove(string $key): void
     {
-        $this->definition($key);
+        $definition = $this->definition($key);
+
+        if ($definition->readonly) {
+            throw new ReadonlySettingException(
+                message: sprintf('Setting "%s" is read-only', $key),
+            );
+        }
 
         $this->db->createCommand()
             ->delete($this->table, ['key' => $key])
@@ -159,8 +172,23 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
             hasStoredOverride: $hasStoredOverride,
             source: $source,
             isSecret: $definition->isSecret(),
-            isWritable: true,
+            isWritable: !$definition->readonly,
         );
+    }
+
+    /**
+     * @return list<SettingState>
+     */
+    #[\Override]
+    public function describeAll(): array
+    {
+        $states = [];
+
+        foreach (array_keys($this->definitions) as $key) {
+            $states[] = $this->describe($key);
+        }
+
+        return $states;
     }
 
     /**
