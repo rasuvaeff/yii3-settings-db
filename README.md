@@ -15,7 +15,7 @@ Database-backed writable settings provider for Yii3 applications. Implements `Wr
 
 - PHP 8.3+
 - `ext-sodium` (bundled with PHP 7.2+)
-- `rasuvaeff/yii3-settings` ^1.1
+- `rasuvaeff/yii3-settings` ^1.0
 - `yiisoft/db` ^2.0
 - `yiisoft/db-migration` ^2.0
 - a PSR-16 cache implementation — required transitively by `yiisoft/db` 2.0
@@ -27,7 +27,7 @@ Database-backed writable settings provider for Yii3 applications. Implements `Wr
 composer require rasuvaeff/yii3-settings-db
 ```
 
-Requires `rasuvaeff/yii3-settings` ^2.0. With Yii3 config-plugin this package binds
+Requires `rasuvaeff/yii3-settings` ^1.0. With Yii3 config-plugin this package binds
 `SettingsProvider`, `WritableSettingsProvider` **and `SettingsInspector`**
 automatically (all resolve to the same `DbSettingsProvider` instance); the core
 binds the `Settings` facade. Do **not** also bind these in your application or
@@ -73,7 +73,7 @@ resolves to `SettingDefinition::default`.
 
 The package ships `config/params.php` and `config/di.php` via config-plugin.
 It binds `WritableSettingsProvider`, `SettingsProvider` and `SettingsInspector`;
-the `Settings` facade itself is bound by the core (`rasuvaeff/yii3-settings` ^2.0)
+the `Settings` facade itself is bound by the core (`rasuvaeff/yii3-settings` ^1.0)
 from the injected `SettingsProvider`. The default wiring keeps explicit config
 `values` working: `DbSettingsProvider` is built with a `ConfigSettingsProvider`
 fallback, so a key without a stored DB row resolves to its config `value` (and
