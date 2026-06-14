@@ -197,6 +197,16 @@ $count = $provider->reencryptSecrets();
 // are encrypted in-place. Returns count of re-encrypted keys.
 ```
 
+### Console command
+
+```bash
+php yiisoft/yii settings:reencrypt
+```
+
+Output: `Re-encrypted 7 secret setting(s).` Works in any
+Symfony Console / `yiisoft/yii-console` application. The `ReencryptSettingsCommand`
+class is autowired via DI.
+
 ### Public API
 
 | Class | Description |
@@ -204,6 +214,7 @@ $count = $provider->reencryptSecrets();
 | `DbSettingsProvider` | DB-backed `WritableSettingsProvider` + `SettingsInspector` |
 | `KeyRing` | Key management with versioning and active key |
 | `SodiumCipher` | XChaCha20-Poly1305 encryption via libsodium |
+| `ReencryptSettingsCommand` | Console command (`settings:reencrypt`) |
 | `InvalidSettingRowException` | Stored row type mismatch |
 
 ## Security

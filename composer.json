@@ -25,6 +25,7 @@
         "php": "8.3 - 8.5",
         "ext-sodium": "*",
         "rasuvaeff/yii3-settings": "^1.0",
+        "symfony/console": "^7.0",
         "yiisoft/db": "^2.0",
         "yiisoft/db-migration": "^2.0"
     },
