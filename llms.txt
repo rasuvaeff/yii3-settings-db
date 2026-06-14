@@ -70,3 +70,9 @@ The shipped `config/di.php` binds:
 - `SettingsProvider::class` → the same `DbSettingsProvider` instance
 - `SettingsInspector::class` → the same `DbSettingsProvider` instance (`describe()`, `describeAll()`)
 - `Settings::class` → facade with normalized definitions + `strictMode`
+
+## Console
+
+`ReencryptSettingsCommand` (`settings:reencrypt`, Symfony Console, `#[AsCommand]`).
+Calls `DbSettingsProvider::reencryptSecrets()`. No extra options.
+Requires `symfony/console ^7` (usually provided by `yiisoft/yii-console` in host).

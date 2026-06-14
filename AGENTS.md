@@ -9,7 +9,8 @@ Database-backed writable settings provider for Yii3. Implements
 setting overrides in a `settings` table, and leaves types/defaults in core
 `SettingDefinition` config. Namespace: `Rasuvaeff\Yii3SettingsDb`.
 
-Public API: `DbSettingsProvider`, `Exception\InvalidSettingRowException`.
+Public API: `DbSettingsProvider`, `Console\ReencryptSettingsCommand`,
+`Exception\InvalidSettingRowException`.
 `SettingRowMapper` is `@internal` and is the only place that knows DB row ↔ typed
 setting conversion. The package ships a `yiisoft/db-migration` migration in
 `migrations/` and Yii3 config-plugin wiring in `config/`.
