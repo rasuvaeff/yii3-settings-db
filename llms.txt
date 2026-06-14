@@ -45,6 +45,13 @@ $provider->get('mail.from');
 $provider->set('mail.from', 'admin@example.com');
 $provider->set('orders.max_items', '250');
 $provider->remove('mail.from');
+
+// Bulk operations
+$provider->getByPrefix('mail.');      // ['mail.from' => ..., 'mail.enabled' => ...]
+$provider->setMany(['mail.from' => 'x', 'mail.enabled' => false]); // transaction
+
+// Key rotation
+$provider->reencryptSecrets(); // int — count of re-encrypted keys
 ```
 
 ### InvalidSettingRowException

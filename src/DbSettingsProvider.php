@@ -255,6 +255,122 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
         return $count;
     }
 
+    /**
+     * Resolves effective values for all defined keys whose name starts with `$prefix`.
+     *
+     * @param non-empty-string $prefix
+     *
+     * @return array<string, mixed> key → effective value
+     */
+    public function getByPrefix(string $prefix): array
+    {
+        $matchingKeys = array_filter(
+            array_keys($this->definitions),
+            static fn(string $key): bool => str_starts_with($key, $prefix),
+        );
+
+        if ($matchingKeys === []) {
+            return [];
+        }
+
+        $rows = $this->queryRowsByPrefix($prefix);
+        /** @var array<string, mixed> $results */
+        $results = [];
+
+        foreach ($matchingKeys as $key) {
+            $results[$key] = $this->resolveEffectiveValue(
+                definition: $this->definitions[$key],
+                row: $rows[$key] ?? null,
+            );
+        }
+
+        return $results;
+    }
+
+    /**
+     * Sets multiple values in a single transaction.
+     *
+     * @param array<string, mixed> $values key → value pairs
+     *
+     * @throws UnknownSettingException if any key is not declared in definitions
+     * @throws ReadonlySettingException if any key is marked readonly
+     */
+    public function setMany(array $values): void
+    {
+        if ($values === []) {
+            return;
+        }
+
+        $entries = [];
+        foreach ($values as $key => $value) {
+            $definition = $this->definition($key);
+
+            if ($definition->readonly) {
+                throw new ReadonlySettingException(
+                    message: sprintf('Setting "%s" is read-only', $key),
+                );
+            }
+
+            $entries[] = [$definition, $key, $value];
+        }
+
+        $this->db->transaction(function () use ($entries): void {
+            foreach ($entries as [$definition, $key, $value]) {
+                if ($definition->isSecret()) {
+                    assert($this->cipher !== null);
+
+                    $plaintext = (string) $definition->cast($value);
+                    $encrypted = $this->cipher->encrypt(plaintext: $plaintext, aad: $key);
+
+                    $this->db->createCommand()
+                        ->upsert($this->table, ['key' => $key, 'value' => $encrypted])
+                        ->execute();
+
+                    continue;
+                }
+
+                $this->db->createCommand()
+                    ->upsert(
+                        $this->table,
+                        [
+                            'key' => $key,
+                            'value' => $this->rowMapper->toStorage(definition: $definition, value: $value),
+                        ],
+                    )
+                    ->execute();
+            }
+        });
+    }
+
+    /**
+     * @param array<array-key, mixed>|null $row
+     */
+    private function resolveEffectiveValue(SettingDefinition $definition, ?array $row): mixed
+    {
+        if ($row === null) {
+            return $this->fallback !== null && $this->fallback->has($definition->key)
+                ? $this->fallback->get($definition->key)
+                : $definition->default;
+        }
+
+        if ($definition->isSecret()) {
+            assert($this->cipher !== null);
+
+            $storedValue = $row['value'];
+            if (!\is_string($storedValue)) {
+                throw new \InvalidArgumentException(
+                    message: sprintf('Malformed stored value for secret setting "%s"', $definition->key),
+                );
+            }
+
+            $plaintext = $this->cipher->decrypt(ciphertext: $storedValue, aad: $definition->key);
+
+            return $this->rowMapper->toValue(row: ['value' => $plaintext], definition: $definition);
+        }
+
+        return $this->rowMapper->toValue(row: $row, definition: $definition);
+    }
+
     private function definition(string $key): SettingDefinition
     {
         if (!isset($this->definitions[$key])) {
@@ -264,6 +380,29 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
         }
 
         return $this->definitions[$key];
+    }
+
+    /**
+     * @return array<string, array<array-key, mixed>>
+     */
+    private function queryRowsByPrefix(string $prefix): array
+    {
+        $rows = (new Query($this->db))
+            ->from($this->table)
+            ->where('"key" LIKE :prefix', [':prefix' => $prefix . '%'])
+            ->all();
+
+        $result = [];
+        foreach ($rows as $row) {
+            if (!\is_array($row) || !isset($row['key'])) {
+                continue;
+            }
+            /** @var string $key */
+            $key = $row['key'];
+            $result[$key] = $row;
+        }
+
+        return $result;
     }
 
     /**

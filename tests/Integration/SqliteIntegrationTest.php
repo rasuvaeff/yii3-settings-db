@@ -529,6 +529,150 @@ final class SqliteIntegrationTest extends TestCase
         $this->assertInstanceOf(SettingsInspector::class, $provider);
     }
 
+    #[Test]
+    public function getByPrefixReturnsDefaultsForNoStoredRows(): void
+    {
+        $provider = $this->provider();
+
+        $result = $provider->getByPrefix('mail.');
+
+        $this->assertSame('noreply@example.com', $result['mail.from']);
+        $this->assertTrue($result['mail.enabled']);
+    }
+
+    #[Test]
+    public function getByPrefixReturnsDbOverrides(): void
+    {
+        $provider = $this->provider();
+        $provider->set('mail.from', 'admin@example.com');
+        $provider->set('mail.enabled', false);
+
+        $result = $provider->getByPrefix('mail.');
+
+        $this->assertSame('admin@example.com', $result['mail.from']);
+        $this->assertFalse($result['mail.enabled']);
+    }
+
+    #[Test]
+    public function getByPrefixResolvesFallback(): void
+    {
+        $provider = $this->provider(fallback: new ConfigSettingsProvider(
+            definitions: $this->definitions,
+            values: ['mail.from' => 'config@example.com'],
+        ));
+
+        $result = $provider->getByPrefix('mail.');
+
+        $this->assertSame('config@example.com', $result['mail.from']);
+        $this->assertTrue($result['mail.enabled']);
+    }
+
+    #[Test]
+    public function getByPrefixReturnsEmptyArrayForNoMatchingKeys(): void
+    {
+        $provider = $this->provider();
+
+        $result = $provider->getByPrefix('nonexistent.');
+
+        $this->assertSame([], $result);
+    }
+
+    #[Test]
+    public function getByPrefixDecryptsSecretValues(): void
+    {
+        $provider = $this->providerWithCipher();
+        $provider->set('billing.stripe_key', 'sk_live_test123');
+
+        $result = $provider->getByPrefix('billing.');
+
+        $this->assertSame('sk_live_test123', $result['billing.stripe_key']);
+    }
+
+    #[Test]
+    public function setManySetsMultipleValues(): void
+    {
+        $provider = $this->provider();
+        $provider->setMany([
+            'mail.from' => 'admin@example.com',
+            'orders.max_items' => '250',
+            'mail.enabled' => false,
+        ]);
+
+        $this->assertSame('admin@example.com', $provider->get('mail.from'));
+        $this->assertSame(250, $provider->get('orders.max_items'));
+        $this->assertFalse($provider->get('mail.enabled'));
+    }
+
+    #[Test]
+    public function setManyRollsBackOnUnknownKey(): void
+    {
+        $provider = $this->provider();
+        $provider->set('mail.from', 'original@example.com');
+
+        try {
+            $provider->setMany([
+                'mail.from' => 'changed@example.com',
+                'unknown.key' => 'value',
+            ]);
+        } catch (UnknownSettingException) {
+            // Expected
+        }
+
+        $this->assertSame('original@example.com', $provider->get('mail.from'));
+    }
+
+    #[Test]
+    public function setManyRollsBackOnReadonlyKey(): void
+    {
+        $provider = new DbSettingsProvider(
+            db: $this->db,
+            definitions: [
+                'app.name' => new SettingDefinition(key: 'app.name', type: SettingType::String, default: 'MyApp'),
+                'app.version' => new SettingDefinition(key: 'app.version', type: SettingType::String, default: '1.0', readonly: true),
+            ],
+        );
+        $provider->set('app.name', 'original');
+
+        try {
+            $provider->setMany([
+                'app.name' => 'changed',
+                'app.version' => '2.0',
+            ]);
+        } catch (ReadonlySettingException) {
+            // Expected — readonly check happens before transaction
+        }
+
+        $this->assertSame('original', $provider->get('app.name'));
+    }
+
+    #[Test]
+    public function setManyWorksWithSecrets(): void
+    {
+        $provider = $this->providerWithCipher();
+        $provider->setMany([
+            'billing.stripe_key' => 'sk_live_new123',
+            'mail.from' => 'admin@example.com',
+        ]);
+
+        $this->assertSame('sk_live_new123', $provider->get('billing.stripe_key'));
+        $this->assertSame('admin@example.com', $provider->get('mail.from'));
+
+        $stored = $this->queryStoredValue('billing.stripe_key');
+        $this->assertNotNull($stored);
+        $this->assertStringStartsWith('enc:', $stored);
+    }
+
+    #[Test]
+    public function setManyEmptyArrayIsNoOp(): void
+    {
+        $provider = $this->provider();
+        $provider->set('mail.from', 'original@example.com');
+
+        $provider->setMany([]);
+
+        $this->assertSame('original@example.com', $provider->get('mail.from'));
+    }
+
     /**
      * @param non-empty-string $table
      */

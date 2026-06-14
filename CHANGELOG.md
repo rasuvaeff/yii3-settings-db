@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Console command: `ReencryptSettingsCommand` (`settings:reencrypt`) invokes
   `DbSettingsProvider::reencryptSecrets()` from any Symfony Console /
   `yiisoft/yii-console` application. Requires `symfony/console ^7`.
+- Added `getByPrefix()`: single `LIKE` query resolving all defined keys with a
+  given prefix through the standard precedence (DB > fallback > default).
+- Added `setMany()`: batch upsert in a transaction with upfront validation
+  (unknown keys throw `UnknownSettingException`, readonly keys throw
+  `ReadonlySettingException`); rolls back entirely on any failure.
 
 ## 1.0.0 — 2026-06-13
 

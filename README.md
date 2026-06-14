@@ -197,15 +197,38 @@ $count = $provider->reencryptSecrets();
 // are encrypted in-place. Returns count of re-encrypted keys.
 ```
 
-### Console command
+### Bulk operations
 
-```bash
-php yiisoft/yii settings:reencrypt
+```php
+// Resolve effective values for all keys starting with "mail."
+$values = $provider->getByPrefix('mail.');
+// ['mail.from' => 'admin@example.com', 'mail.enabled' => true]
+
+// Set multiple values in a single transaction
+$provider->setMany([
+    'mail.from' => 'admin@example.com',
+    'orders.max_items' => '250',
+    'mail.enabled' => false,
+]);
 ```
 
-Output: `Re-encrypted 7 secret setting(s).` Works in any
-Symfony Console / `yiisoft/yii-console` application. The `ReencryptSettingsCommand`
-class is autowired via DI.
+`getByPrefix()` runs a single `LIKE` query, then resolves each key through
+the normal precedence (DB row > fallback > default). `setMany()` validates all
+keys upfront (unknown → `UnknownSettingException`, readonly →
+`ReadonlySettingException`), then upserts in a transaction — if any write fails
+the entire batch rolls back.
+
+### Console commands
+
+```bash
+# Re-encrypt all secret values with the current active key
+./yii settings:reencrypt
+```
+
+The `settings:reencrypt` command runs `reencryptSecrets()` on the active
+`DbSettingsProvider` instance. Works in any Symfony Console /
+`yiisoft/yii-console` application. The `ReencryptSettingsCommand` class is
+autowired via DI.
 
 ### Public API
 
