@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3SettingsDb\Tests\Integration;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 use Rasuvaeff\Yii3Settings\CachedSettingsProvider;
 use Rasuvaeff\Yii3Settings\ConfigSettingsProvider;
 use Rasuvaeff\Yii3Settings\Crypto\Cipher;
@@ -20,14 +18,21 @@ use Rasuvaeff\Yii3SettingsDb\Crypto\KeyRing;
 use Rasuvaeff\Yii3SettingsDb\Crypto\SodiumCipher;
 use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
 use Rasuvaeff\Yii3SettingsDb\Exception\InvalidSettingRowException;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Expect;
+use Testo\Lifecycle\AfterTest;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 use Yiisoft\Db\Cache\SchemaCache;
 use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Sqlite\Connection as SqliteConnection;
 use Yiisoft\Db\Sqlite\Driver as SqliteDriver;
 use Yiisoft\Test\Support\SimpleCache\MemorySimpleCache;
 
-#[CoversClass(DbSettingsProvider::class)]
-final class SqliteIntegrationTest extends TestCase
+#[Test]
+#[Covers(DbSettingsProvider::class)]
+final class SqliteIntegrationTest
 {
     private ConnectionInterface $db;
 
@@ -36,8 +41,8 @@ final class SqliteIntegrationTest extends TestCase
      */
     private array $definitions;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $driver = new SqliteDriver(dsn: 'sqlite::memory:');
         $schemaCache = new SchemaCache(psrCache: new MemorySimpleCache());
@@ -56,83 +61,73 @@ final class SqliteIntegrationTest extends TestCase
         ];
     }
 
-    #[\Override]
-    protected function tearDown(): void
+    #[AfterTest]
+    public function tearDown(): void
     {
         $this->db->close();
     }
 
-    #[Test]
     public function hasReturnsTrueForDefinedKeyWithoutStoredRow(): void
     {
         $provider = $this->provider();
 
-        $this->assertTrue($provider->has('mail.from'));
+        Assert::true($provider->has('mail.from'));
     }
 
-    #[Test]
     public function hasReturnsFalseForUnknownKey(): void
     {
         $provider = $this->provider();
 
-        $this->assertFalse($provider->has('unknown'));
+        Assert::false($provider->has('unknown'));
     }
 
-    #[Test]
     public function getReturnsDefaultWhenNoStoredRowExists(): void
     {
         $provider = $this->provider();
 
-        $this->assertSame('noreply@example.com', $provider->get('mail.from'));
+        Assert::same($provider->get('mail.from'), 'noreply@example.com');
     }
 
-    #[Test]
     public function setAndGetStringValue(): void
     {
         $provider = $this->provider();
         $provider->set('mail.from', 'admin@example.com');
 
-        $this->assertSame('admin@example.com', $provider->get('mail.from'));
+        Assert::same($provider->get('mail.from'), 'admin@example.com');
     }
 
-    #[Test]
     public function setAndGetIntValue(): void
     {
         $provider = $this->provider();
         $provider->set('orders.max_items', '250');
 
-        $this->assertSame(250, $provider->get('orders.max_items'));
+        Assert::same($provider->get('orders.max_items'), 250);
     }
 
-    #[Test]
     public function setAndGetBoolValue(): void
     {
         $provider = $this->provider();
         $provider->set('mail.enabled', false);
 
-        $this->assertFalse($provider->get('mail.enabled'));
+        Assert::false($provider->get('mail.enabled'));
     }
 
-    #[Test]
     public function setAndGetFloatValue(): void
     {
         $provider = $this->provider();
         $provider->set('vat.rate', '21.5');
 
-        $this->assertSame(21.5, $provider->get('vat.rate'));
+        Assert::same($provider->get('vat.rate'), 21.5);
     }
 
-    #[Test]
     public function setAndGetArrayValue(): void
     {
         $provider = $this->provider();
         $provider->set('app.features', ['search' => true, 'beta' => ['a', 'b']]);
 
-        $this->assertSame(['search' => true, 'beta' => ['a', 'b']], $provider->get('app.features'));
+        Assert::same($provider->get('app.features'), ['search' => true, 'beta' => ['a', 'b']]);
     }
 
-
-    #[Test]
     public function getReturnsFallbackValueWhenNoStoredRow(): void
     {
         $provider = $this->provider(fallback: new ConfigSettingsProvider(
@@ -140,10 +135,9 @@ final class SqliteIntegrationTest extends TestCase
             values: ['mail.from' => 'config@example.com'],
         ));
 
-        $this->assertSame('config@example.com', $provider->get('mail.from'));
+        Assert::same($provider->get('mail.from'), 'config@example.com');
     }
 
-    #[Test]
     public function getFallsBackToDefinitionDefaultWhenFallbackHasNoValue(): void
     {
         $provider = $this->provider(fallback: new ConfigSettingsProvider(
@@ -151,10 +145,9 @@ final class SqliteIntegrationTest extends TestCase
             values: [],
         ));
 
-        $this->assertSame('noreply@example.com', $provider->get('mail.from'));
+        Assert::same($provider->get('mail.from'), 'noreply@example.com');
     }
 
-    #[Test]
     public function storedRowTakesPrecedenceOverFallback(): void
     {
         $provider = $this->provider(fallback: new ConfigSettingsProvider(
@@ -163,32 +156,28 @@ final class SqliteIntegrationTest extends TestCase
         ));
         $provider->set('mail.from', 'db@example.com');
 
-        $this->assertSame('db@example.com', $provider->get('mail.from'));
+        Assert::same($provider->get('mail.from'), 'db@example.com');
     }
 
-    #[Test]
     public function getReadsRequestedKeyWhenAnotherRowExists(): void
     {
         $this->insertRawRow(key: 'mail.from', value: 'admin@example.com');
         $this->insertRawRow(key: 'orders.max_items', value: '250');
         $provider = $this->provider();
 
-        $this->assertSame('admin@example.com', $provider->get('mail.from'));
-        $this->assertSame(250, $provider->get('orders.max_items'));
+        Assert::same($provider->get('mail.from'), 'admin@example.com');
+        Assert::same($provider->get('orders.max_items'), 250);
     }
 
-    #[Test]
     public function removeDeletesStoredValueAndFallsBackToDefault(): void
     {
         $provider = $this->provider();
         $provider->set('mail.from', 'admin@example.com');
         $provider->remove('mail.from');
 
-        $this->assertSame('noreply@example.com', $provider->get('mail.from'));
+        Assert::same($provider->get('mail.from'), 'noreply@example.com');
     }
 
-
-    #[Test]
     public function removeDeletesOnlyRequestedRow(): void
     {
         $provider = $this->provider();
@@ -197,87 +186,89 @@ final class SqliteIntegrationTest extends TestCase
 
         $provider->remove('mail.from');
 
-        $this->assertSame('noreply@example.com', $provider->get('mail.from'));
-        $this->assertSame(250, $provider->get('orders.max_items'));
+        Assert::same($provider->get('mail.from'), 'noreply@example.com');
+        Assert::same($provider->get('orders.max_items'), 250);
     }
 
-    #[Test]
     public function removeMissingStoredRowIsNoOp(): void
     {
         $provider = $this->provider();
         $provider->remove('mail.from');
 
-        $this->assertSame('noreply@example.com', $provider->get('mail.from'));
+        Assert::same($provider->get('mail.from'), 'noreply@example.com');
     }
 
-    #[Test]
     public function setOverwritesExistingValue(): void
     {
         $provider = $this->provider();
         $provider->set('orders.max_items', 100);
         $provider->set('orders.max_items', 200);
 
-        $this->assertSame(200, $provider->get('orders.max_items'));
+        Assert::same($provider->get('orders.max_items'), 200);
     }
 
-    #[Test]
     public function throwsOnUnknownKeyGet(): void
     {
         $provider = $this->provider();
 
-        $this->expectException(UnknownSettingException::class);
-        $this->expectExceptionMessage('Unknown setting "unknown"');
-
-        $provider->get('unknown');
+        try {
+            $provider->get('unknown');
+            Assert::fail('Expected UnknownSettingException');
+        } catch (UnknownSettingException $e) {
+            Assert::string($e->getMessage())->contains('Unknown setting "unknown"');
+        }
     }
 
-    #[Test]
     public function throwsOnUnknownKeySet(): void
     {
         $provider = $this->provider();
 
-        $this->expectException(UnknownSettingException::class);
-        $this->expectExceptionMessage('Unknown setting "unknown"');
-
-        $provider->set('unknown', 'value');
+        try {
+            $provider->set('unknown', 'value');
+            Assert::fail('Expected UnknownSettingException');
+        } catch (UnknownSettingException $e) {
+            Assert::string($e->getMessage())->contains('Unknown setting "unknown"');
+        }
     }
 
-    #[Test]
     public function throwsOnUnknownKeyRemove(): void
     {
         $provider = $this->provider();
 
-        $this->expectException(UnknownSettingException::class);
-        $this->expectExceptionMessage('Unknown setting "unknown"');
-
-        $provider->remove('unknown');
+        try {
+            $provider->remove('unknown');
+            Assert::fail('Expected UnknownSettingException');
+        } catch (UnknownSettingException $e) {
+            Assert::string($e->getMessage())->contains('Unknown setting "unknown"');
+        }
     }
 
-    #[Test]
     public function throwsOnInvalidStoredInt(): void
     {
         $this->insertRawRow(key: 'orders.max_items', value: 'abc');
         $provider = $this->provider();
 
-        $this->expectException(InvalidSettingRowException::class);
-        $this->expectExceptionMessage('Invalid stored int for setting "orders.max_items"');
-
-        $provider->get('orders.max_items');
+        try {
+            $provider->get('orders.max_items');
+            Assert::fail('Expected InvalidSettingRowException');
+        } catch (InvalidSettingRowException $e) {
+            Assert::string($e->getMessage())->contains('Invalid stored int for setting "orders.max_items"');
+        }
     }
 
-    #[Test]
     public function throwsOnInvalidStoredJson(): void
     {
         $this->insertRawRow(key: 'app.features', value: 'not-json');
         $provider = $this->provider();
 
-        $this->expectException(InvalidSettingRowException::class);
-        $this->expectExceptionMessage('Invalid stored JSON for setting "app.features"');
-
-        $provider->get('app.features');
+        try {
+            $provider->get('app.features');
+            Assert::fail('Expected InvalidSettingRowException');
+        } catch (InvalidSettingRowException $e) {
+            Assert::string($e->getMessage())->contains('Invalid stored JSON for setting "app.features"');
+        }
     }
 
-    #[Test]
     public function integratesWithCoreCachedSettingsProvider(): void
     {
         $this->insertRawRow(key: 'mail.from', value: 'first@example.com');
@@ -289,70 +280,66 @@ final class SqliteIntegrationTest extends TestCase
             ttl: 60,
         );
 
-        $this->assertSame('first@example.com', $cached->get('mail.from'));
+        Assert::same($cached->get('mail.from'), 'first@example.com');
 
         $this->insertOrReplaceRawRow(key: 'mail.from', value: 'second@example.com');
 
-        $this->assertSame('first@example.com', $cached->get('mail.from'));
+        Assert::same($cached->get('mail.from'), 'first@example.com');
 
         $cached->clear('mail.from');
 
-        $this->assertSame('second@example.com', $cached->get('mail.from'));
+        Assert::same($cached->get('mail.from'), 'second@example.com');
     }
 
-    #[Test]
     public function constructorThrowsWhenSecretDefWithoutCipher(): void
     {
         $defs = $this->definitionsWithSecret();
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Cipher is required when secret definitions exist');
-
-        new DbSettingsProvider(db: $this->db, definitions: $defs);
+        try {
+            new DbSettingsProvider(db: $this->db, definitions: $defs);
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Cipher is required when secret definitions exist');
+        }
     }
 
-    #[Test]
     public function secretSetAndGetRoundtrip(): void
     {
         $provider = $this->providerWithCipher();
         $provider->set('billing.stripe_key', 'sk_live_test123');
 
-        $this->assertSame('sk_live_test123', $provider->get('billing.stripe_key'));
+        Assert::same($provider->get('billing.stripe_key'), 'sk_live_test123');
     }
 
-    #[Test]
     public function secretValueIsEncryptedAtRest(): void
     {
         $provider = $this->providerWithCipher();
         $provider->set('billing.stripe_key', 'sk_live_test123');
 
         $stored = $this->queryStoredValue('billing.stripe_key');
-        $this->assertNotNull($stored);
-        $this->assertStringStartsWith('enc:', $stored);
-        $this->assertStringNotContainsString('sk_live_test123', $stored);
+        Assert::notNull($stored);
+        Assert::true(str_starts_with($stored, 'enc:'));
+        Assert::string($stored)->notContains('sk_live_test123');
     }
 
-    #[Test]
     public function secretGetReturnsDefaultWhenNoStoredRow(): void
     {
         $provider = $this->providerWithCipher();
 
-        $this->assertNull($provider->get('billing.stripe_key'));
+        Assert::null($provider->get('billing.stripe_key'));
     }
 
-    #[Test]
     public function nonSecretKeysUnaffectedByCipher(): void
     {
         $provider = $this->providerWithCipher();
         $provider->set('mail.from', 'admin@example.com');
 
         $stored = $this->queryStoredValue('mail.from');
-        $this->assertNotNull($stored);
-        $this->assertStringNotContainsString('enc:', $stored);
-        $this->assertSame('admin@example.com', $provider->get('mail.from'));
+        Assert::notNull($stored);
+        Assert::string($stored)->notContains('enc:');
+        Assert::same($provider->get('mail.from'), 'admin@example.com');
     }
 
-    #[Test]
     public function describeForDbOverride(): void
     {
         $provider = $this->providerWithCipher();
@@ -360,15 +347,14 @@ final class SqliteIntegrationTest extends TestCase
 
         $state = $provider->describe(key: 'mail.from');
 
-        $this->assertSame('mail.from', $state->key);
-        $this->assertSame('admin@example.com', $state->effectiveValue);
-        $this->assertTrue($state->hasStoredOverride);
-        $this->assertSame('db', $state->source);
-        $this->assertFalse($state->isSecret);
-        $this->assertTrue($state->isWritable);
+        Assert::same($state->key, 'mail.from');
+        Assert::same($state->effectiveValue, 'admin@example.com');
+        Assert::true($state->hasStoredOverride);
+        Assert::same($state->source, 'db');
+        Assert::false($state->isSecret);
+        Assert::true($state->isWritable);
     }
 
-    #[Test]
     public function describeAllReturnsStateForEveryDefinition(): void
     {
         $provider = $this->provider();
@@ -376,49 +362,45 @@ final class SqliteIntegrationTest extends TestCase
 
         $states = $provider->describeAll();
 
-        $this->assertCount(\count($this->definitions), $states);
+        Assert::count($states, \count($this->definitions));
         $keys = array_map(static fn($state): string => $state->key, $states);
-        $this->assertSame(array_keys($this->definitions), $keys);
+        Assert::same($keys, array_keys($this->definitions));
 
         $byKey = [];
         foreach ($states as $state) {
             $byKey[$state->key] = $state;
         }
-        $this->assertSame('db', $byKey['mail.from']->source);
-        $this->assertSame('default', $byKey['orders.max_items']->source);
+        Assert::same($byKey['mail.from']->source, 'db');
+        Assert::same($byKey['orders.max_items']->source, 'default');
     }
 
-    #[Test]
     public function readonlyDefinitionIsNotWritable(): void
     {
         $provider = $this->readonlyProvider();
 
         $state = $provider->describe(key: 'app.version');
 
-        $this->assertFalse($state->isWritable);
+        Assert::false($state->isWritable);
     }
 
-    #[Test]
     public function setOnReadonlyThrows(): void
     {
         $provider = $this->readonlyProvider();
 
-        $this->expectException(ReadonlySettingException::class);
+        Expect::exception(ReadonlySettingException::class);
 
         $provider->set('app.version', '2.0');
     }
 
-    #[Test]
     public function removeOnReadonlyThrows(): void
     {
         $provider = $this->readonlyProvider();
 
-        $this->expectException(ReadonlySettingException::class);
+        Expect::exception(ReadonlySettingException::class);
 
         $provider->remove('app.version');
     }
 
-    #[Test]
     public function describeForConfigFallback(): void
     {
         $defs = $this->definitionsWithSecret();
@@ -437,24 +419,22 @@ final class SqliteIntegrationTest extends TestCase
 
         $state = $provider->describe(key: 'mail.from');
 
-        $this->assertSame('config', $state->source);
-        $this->assertSame('config@example.com', $state->effectiveValue);
-        $this->assertFalse($state->hasStoredOverride);
+        Assert::same($state->source, 'config');
+        Assert::same($state->effectiveValue, 'config@example.com');
+        Assert::false($state->hasStoredOverride);
     }
 
-    #[Test]
     public function describeForDefaultSource(): void
     {
         $provider = $this->providerWithCipher();
 
         $state = $provider->describe(key: 'mail.from');
 
-        $this->assertSame('default', $state->source);
-        $this->assertSame('noreply@example.com', $state->effectiveValue);
-        $this->assertFalse($state->hasStoredOverride);
+        Assert::same($state->source, 'default');
+        Assert::same($state->effectiveValue, 'noreply@example.com');
+        Assert::false($state->hasStoredOverride);
     }
 
-    #[Test]
     public function describeMasksSecretValue(): void
     {
         $provider = $this->providerWithCipher();
@@ -462,25 +442,23 @@ final class SqliteIntegrationTest extends TestCase
 
         $state = $provider->describe(key: 'billing.stripe_key');
 
-        $this->assertTrue($state->isSecret);
-        $this->assertTrue($state->hasStoredOverride);
-        $this->assertSame('db', $state->source);
-        $this->assertNull($state->effectiveValue);
+        Assert::true($state->isSecret);
+        Assert::true($state->hasStoredOverride);
+        Assert::same($state->source, 'db');
+        Assert::null($state->effectiveValue);
     }
 
-    #[Test]
     public function describeSecretWithoutOverride(): void
     {
         $provider = $this->providerWithCipher();
 
         $state = $provider->describe(key: 'billing.stripe_key');
 
-        $this->assertTrue($state->isSecret);
-        $this->assertFalse($state->hasStoredOverride);
-        $this->assertNull($state->effectiveValue);
+        Assert::true($state->isSecret);
+        Assert::false($state->hasStoredOverride);
+        Assert::null($state->effectiveValue);
     }
 
-    #[Test]
     public function reencryptSecretsEncryptsPlaintextValue(): void
     {
         $this->insertRawRow(key: 'billing.stripe_key', value: 'sk_old_plaintext');
@@ -488,16 +466,15 @@ final class SqliteIntegrationTest extends TestCase
         $provider = $this->providerWithCipher();
         $count = $provider->reencryptSecrets();
 
-        $this->assertSame(1, $count);
+        Assert::same($count, 1);
 
         $stored = $this->queryStoredValue('billing.stripe_key');
-        $this->assertNotNull($stored);
-        $this->assertStringStartsWith('enc:', $stored);
+        Assert::notNull($stored);
+        Assert::true(str_starts_with($stored, 'enc:'));
 
-        $this->assertSame('sk_old_plaintext', $provider->get('billing.stripe_key'));
+        Assert::same($provider->get('billing.stripe_key'), 'sk_old_plaintext');
     }
 
-    #[Test]
     public function reencryptSecretsSkipsNonSecretKeys(): void
     {
         $this->insertRawRow(key: 'mail.from', value: 'admin@example.com');
@@ -506,10 +483,9 @@ final class SqliteIntegrationTest extends TestCase
         $provider = $this->providerWithCipher();
         $count = $provider->reencryptSecrets();
 
-        $this->assertSame(0, $count);
+        Assert::same($count, 0);
     }
 
-    #[Test]
     public function reencryptSecretsSkipsAlreadyEncrypted(): void
     {
         $provider = $this->providerWithCipher();
@@ -517,30 +493,27 @@ final class SqliteIntegrationTest extends TestCase
 
         $count = $provider->reencryptSecrets();
 
-        $this->assertSame(0, $count);
-        $this->assertSame('sk_val', $provider->get('billing.stripe_key'));
+        Assert::same($count, 0);
+        Assert::same($provider->get('billing.stripe_key'), 'sk_val');
     }
 
-    #[Test]
     public function dbSettingsProviderImplementsInspector(): void
     {
         $provider = $this->providerWithCipher();
 
-        $this->assertInstanceOf(SettingsInspector::class, $provider);
+        Assert::instanceOf($provider, SettingsInspector::class);
     }
 
-    #[Test]
     public function getByPrefixReturnsDefaultsForNoStoredRows(): void
     {
         $provider = $this->provider();
 
         $result = $provider->getByPrefix('mail.');
 
-        $this->assertSame('noreply@example.com', $result['mail.from']);
-        $this->assertTrue($result['mail.enabled']);
+        Assert::same($result['mail.from'], 'noreply@example.com');
+        Assert::true($result['mail.enabled']);
     }
 
-    #[Test]
     public function getByPrefixReturnsDbOverrides(): void
     {
         $provider = $this->provider();
@@ -549,11 +522,10 @@ final class SqliteIntegrationTest extends TestCase
 
         $result = $provider->getByPrefix('mail.');
 
-        $this->assertSame('admin@example.com', $result['mail.from']);
-        $this->assertFalse($result['mail.enabled']);
+        Assert::same($result['mail.from'], 'admin@example.com');
+        Assert::false($result['mail.enabled']);
     }
 
-    #[Test]
     public function getByPrefixResolvesFallback(): void
     {
         $provider = $this->provider(fallback: new ConfigSettingsProvider(
@@ -563,21 +535,19 @@ final class SqliteIntegrationTest extends TestCase
 
         $result = $provider->getByPrefix('mail.');
 
-        $this->assertSame('config@example.com', $result['mail.from']);
-        $this->assertTrue($result['mail.enabled']);
+        Assert::same($result['mail.from'], 'config@example.com');
+        Assert::true($result['mail.enabled']);
     }
 
-    #[Test]
     public function getByPrefixReturnsEmptyArrayForNoMatchingKeys(): void
     {
         $provider = $this->provider();
 
         $result = $provider->getByPrefix('nonexistent.');
 
-        $this->assertSame([], $result);
+        Assert::same($result, []);
     }
 
-    #[Test]
     public function getByPrefixDecryptsSecretValues(): void
     {
         $provider = $this->providerWithCipher();
@@ -585,10 +555,9 @@ final class SqliteIntegrationTest extends TestCase
 
         $result = $provider->getByPrefix('billing.');
 
-        $this->assertSame('sk_live_test123', $result['billing.stripe_key']);
+        Assert::same($result['billing.stripe_key'], 'sk_live_test123');
     }
 
-    #[Test]
     public function setManySetsMultipleValues(): void
     {
         $provider = $this->provider();
@@ -598,12 +567,11 @@ final class SqliteIntegrationTest extends TestCase
             'mail.enabled' => false,
         ]);
 
-        $this->assertSame('admin@example.com', $provider->get('mail.from'));
-        $this->assertSame(250, $provider->get('orders.max_items'));
-        $this->assertFalse($provider->get('mail.enabled'));
+        Assert::same($provider->get('mail.from'), 'admin@example.com');
+        Assert::same($provider->get('orders.max_items'), 250);
+        Assert::false($provider->get('mail.enabled'));
     }
 
-    #[Test]
     public function setManyRollsBackOnUnknownKey(): void
     {
         $provider = $this->provider();
@@ -618,10 +586,9 @@ final class SqliteIntegrationTest extends TestCase
             // Expected
         }
 
-        $this->assertSame('original@example.com', $provider->get('mail.from'));
+        Assert::same($provider->get('mail.from'), 'original@example.com');
     }
 
-    #[Test]
     public function setManyRollsBackOnReadonlyKey(): void
     {
         $provider = new DbSettingsProvider(
@@ -642,10 +609,9 @@ final class SqliteIntegrationTest extends TestCase
             // Expected — readonly check happens before transaction
         }
 
-        $this->assertSame('original', $provider->get('app.name'));
+        Assert::same($provider->get('app.name'), 'original');
     }
 
-    #[Test]
     public function setManyWorksWithSecrets(): void
     {
         $provider = $this->providerWithCipher();
@@ -654,15 +620,14 @@ final class SqliteIntegrationTest extends TestCase
             'mail.from' => 'admin@example.com',
         ]);
 
-        $this->assertSame('sk_live_new123', $provider->get('billing.stripe_key'));
-        $this->assertSame('admin@example.com', $provider->get('mail.from'));
+        Assert::same($provider->get('billing.stripe_key'), 'sk_live_new123');
+        Assert::same($provider->get('mail.from'), 'admin@example.com');
 
         $stored = $this->queryStoredValue('billing.stripe_key');
-        $this->assertNotNull($stored);
-        $this->assertStringStartsWith('enc:', $stored);
+        Assert::notNull($stored);
+        Assert::true(str_starts_with($stored, 'enc:'));
     }
 
-    #[Test]
     public function setManyEmptyArrayIsNoOp(): void
     {
         $provider = $this->provider();
@@ -670,7 +635,7 @@ final class SqliteIntegrationTest extends TestCase
 
         $provider->setMany([]);
 
-        $this->assertSame('original@example.com', $provider->get('mail.from'));
+        Assert::same($provider->get('mail.from'), 'original@example.com');
     }
 
     /**

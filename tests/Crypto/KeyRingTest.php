@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3SettingsDb\Tests\Crypto;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 use Rasuvaeff\Yii3Settings\Crypto\UnknownEncryptionKeyException;
 use Rasuvaeff\Yii3SettingsDb\Crypto\KeyRing;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(KeyRing::class)]
-final class KeyRingTest extends TestCase
+#[Test]
+#[Covers(KeyRing::class)]
+final class KeyRingTest
 {
     private const int KEY_BYTES = SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES;
 
@@ -20,7 +22,6 @@ final class KeyRingTest extends TestCase
         return random_bytes(self::KEY_BYTES);
     }
 
-    #[Test]
     public function createsWithValidKeys(): void
     {
         $keyId = 'key-2025';
@@ -29,11 +30,10 @@ final class KeyRingTest extends TestCase
             activeKeyId: $keyId,
         );
 
-        $this->assertSame($keyId, $keyRing->activeKeyId());
-        $this->assertSame(32, strlen($keyRing->keyFor($keyId)));
+        Assert::same($keyRing->activeKeyId(), $keyId);
+        Assert::same(strlen($keyRing->keyFor($keyId)), 32);
     }
 
-    #[Test]
     public function multipleKeys(): void
     {
         $keyRing = new KeyRing(
@@ -44,58 +44,62 @@ final class KeyRingTest extends TestCase
             activeKeyId: 'key-v2',
         );
 
-        $this->assertSame('key-v2', $keyRing->activeKeyId());
-        $this->assertNotEmpty($keyRing->keyFor('key-v1'));
-        $this->assertNotEmpty($keyRing->keyFor('key-v2'));
+        Assert::same($keyRing->activeKeyId(), 'key-v2');
+        Assert::true($keyRing->keyFor('key-v1') !== '');
+        Assert::true($keyRing->keyFor('key-v2') !== '');
     }
 
-    #[Test]
     public function throwsOnActiveKeyNotFound(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Active key ID "missing" not found in key set');
-
-        new KeyRing(
-            keys: ['exists' => $this->validKey()],
-            activeKeyId: 'missing',
-        );
+        try {
+            new KeyRing(
+                keys: ['exists' => $this->validKey()],
+                activeKeyId: 'missing',
+            );
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Active key ID "missing" not found in key set');
+        }
     }
 
-    #[Test]
     public function throwsOnKeyTooShort(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage(sprintf('must be exactly %d bytes', self::KEY_BYTES));
-
-        new KeyRing(
-            keys: ['k' => 'too short'],
-            activeKeyId: 'k',
-        );
+        try {
+            new KeyRing(
+                keys: ['k' => 'too short'],
+                activeKeyId: 'k',
+            );
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains(sprintf('must be exactly %d bytes', self::KEY_BYTES));
+        }
     }
 
-    #[Test]
     public function throwsOnKeyTooLong(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage(sprintf('must be exactly %d bytes', self::KEY_BYTES));
-
-        new KeyRing(
-            keys: ['k' => random_bytes(self::KEY_BYTES + 1)],
-            activeKeyId: 'k',
-        );
+        try {
+            new KeyRing(
+                keys: ['k' => random_bytes(self::KEY_BYTES + 1)],
+                activeKeyId: 'k',
+            );
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains(sprintf('must be exactly %d bytes', self::KEY_BYTES));
+        }
     }
 
-    #[Test]
     public function throwsOnUnknownKeyId(): void
     {
-        $this->expectException(UnknownEncryptionKeyException::class);
-        $this->expectExceptionMessage('Unknown encryption key ID "missing"');
-
         $keyRing = new KeyRing(
             keys: ['exists' => $this->validKey()],
             activeKeyId: 'exists',
         );
 
-        $keyRing->keyFor('missing');
+        try {
+            $keyRing->keyFor('missing');
+            Assert::fail('Expected UnknownEncryptionKeyException');
+        } catch (UnknownEncryptionKeyException $e) {
+            Assert::string($e->getMessage())->contains('Unknown encryption key ID "missing"');
+        }
     }
 }

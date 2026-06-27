@@ -4,23 +4,26 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3SettingsDb\Tests\Crypto;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Settings\Crypto\DecryptionException;
 use Rasuvaeff\Yii3Settings\Crypto\UnknownEncryptionKeyException;
 use Rasuvaeff\Yii3SettingsDb\Crypto\KeyRing;
 use Rasuvaeff\Yii3SettingsDb\Crypto\SodiumCipher;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Expect;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 
-#[CoversClass(SodiumCipher::class)]
-final class SodiumCipherTest extends TestCase
+#[Test]
+#[Covers(SodiumCipher::class)]
+final class SodiumCipherTest
 {
     private KeyRing $keyRing;
 
     private SodiumCipher $cipher;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $this->keyRing = new KeyRing(
             keys: ['key-2025' => random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES)],
@@ -29,20 +32,18 @@ final class SodiumCipherTest extends TestCase
         $this->cipher = new SodiumCipher(keyRing: $this->keyRing);
     }
 
-    #[Test]
     public function roundtripEncryptDecrypt(): void
     {
         $plaintext = 'sk_live_secret_key_123';
         $aad = 'billing.stripe_key';
 
         $ciphertext = $this->cipher->encrypt(plaintext: $plaintext, aad: $aad);
-        $this->assertStringStartsWith('enc:', $ciphertext);
+        Assert::true(str_starts_with($ciphertext, 'enc:'));
 
         $decrypted = $this->cipher->decrypt(ciphertext: $ciphertext, aad: $aad);
-        $this->assertSame($plaintext, $decrypted);
+        Assert::same($decrypted, $plaintext);
     }
 
-    #[Test]
     public function tamperedCiphertextThrows(): void
     {
         $ciphertext = $this->cipher->encrypt(plaintext: 'secret', aad: 'my.key');
@@ -52,41 +53,36 @@ final class SodiumCipherTest extends TestCase
 
         $tampered = implode(':', $parts);
 
-        $this->expectException(DecryptionException::class);
+        Expect::exception(DecryptionException::class);
         $this->cipher->decrypt(ciphertext: $tampered, aad: 'my.key');
     }
 
-    #[Test]
     public function wrongAadThrows(): void
     {
         $ciphertext = $this->cipher->encrypt(plaintext: 'secret', aad: 'my.key');
 
-        $this->expectException(DecryptionException::class);
+        Expect::exception(DecryptionException::class);
         $this->cipher->decrypt(ciphertext: $ciphertext, aad: 'other.key');
     }
 
-    #[Test]
     public function invalidEnvelopeFormatThrows(): void
     {
-        $this->expectException(DecryptionException::class);
+        Expect::exception(DecryptionException::class);
         $this->cipher->decrypt(ciphertext: 'not-a-valid-envelope', aad: 'key');
     }
 
-    #[Test]
     public function invalidBase64Throws(): void
     {
-        $this->expectException(DecryptionException::class);
+        Expect::exception(DecryptionException::class);
         $this->cipher->decrypt(ciphertext: 'enc:v:key-1:!!!bad!!!:!!!bad!!!', aad: 'key');
     }
 
-    #[Test]
     public function wrongEnvelopePrefixThrows(): void
     {
-        $this->expectException(DecryptionException::class);
+        Expect::exception(DecryptionException::class);
         $this->cipher->decrypt(ciphertext: 'not-enc:v:key-1:YQ==:YQ==', aad: 'key');
     }
 
-    #[Test]
     public function keyRotationNewKeyEncryptsOldKeyDecrypts(): void
     {
         $keyRing = new KeyRing(
@@ -108,10 +104,9 @@ final class SodiumCipherTest extends TestCase
         $newCipher = new SodiumCipher(keyRing: $newKeyRing);
 
         $decrypted = $newCipher->decrypt(ciphertext: $ciphertext, aad: 'my.key');
-        $this->assertSame('secret', $decrypted);
+        Assert::same($decrypted, 'secret');
     }
 
-    #[Test]
     public function unknownKeyIdThrows(): void
     {
         $ciphertext = $this->cipher->encrypt(plaintext: 'secret', aad: 'my.key');
@@ -122,7 +117,7 @@ final class SodiumCipherTest extends TestCase
         );
         $emptyCipher = new SodiumCipher(keyRing: $emptyKeyRing);
 
-        $this->expectException(UnknownEncryptionKeyException::class);
+        Expect::exception(UnknownEncryptionKeyException::class);
         $emptyCipher->decrypt(ciphertext: $ciphertext, aad: 'my.key');
     }
 }

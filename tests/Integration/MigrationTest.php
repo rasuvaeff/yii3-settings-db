@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3SettingsDb\Tests\Integration;
 
 use M260605120000CreateSettingsTable;
-use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Settings\SettingDefinition;
 use Rasuvaeff\Yii3Settings\SettingType;
 use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
+use Testo\Assert;
+use Testo\Codecov\CoversNothing;
+use Testo\Lifecycle\AfterTest;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 use Yiisoft\Db\Cache\SchemaCache;
 use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Migration\Informer\NullMigrationInformer;
@@ -19,15 +21,16 @@ use Yiisoft\Db\Sqlite\Connection as SqliteConnection;
 use Yiisoft\Db\Sqlite\Driver as SqliteDriver;
 use Yiisoft\Test\Support\SimpleCache\MemorySimpleCache;
 
+#[Test]
 #[CoversNothing]
-final class MigrationTest extends TestCase
+final class MigrationTest
 {
     private ConnectionInterface $db;
 
     private MigrationBuilder $builder;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         require_once dirname(__DIR__, 2) . '/migrations/M260605120000CreateSettingsTable.php';
 
@@ -39,13 +42,12 @@ final class MigrationTest extends TestCase
         $this->builder = new MigrationBuilder(db: $this->db, informer: new NullMigrationInformer());
     }
 
-    #[\Override]
-    protected function tearDown(): void
+    #[AfterTest]
+    public function tearDown(): void
     {
         $this->db->close();
     }
 
-    #[Test]
     public function createsAndDropsSettingsTable(): void
     {
         $migration = new M260605120000CreateSettingsTable();
@@ -53,26 +55,24 @@ final class MigrationTest extends TestCase
         $migration->up($this->builder);
 
         $schema = $this->db->getTableSchema('settings', true);
-        $this->assertNotNull($schema);
-        $this->assertNotNull($schema->getColumn('key'));
-        $this->assertNotNull($schema->getColumn('value'));
-        $this->assertSame(['key'], $schema->getPrimaryKey());
+        Assert::notNull($schema);
+        Assert::notNull($schema->getColumn('key'));
+        Assert::notNull($schema->getColumn('value'));
+        Assert::same($schema->getPrimaryKey(), ['key']);
 
         $migration->down($this->builder);
 
-        $this->assertNull($this->db->getTableSchema('settings', true));
+        Assert::null($this->db->getTableSchema('settings', true));
     }
 
-    #[Test]
     public function createsTableWithCustomName(): void
     {
         (new M260605120000CreateSettingsTable(table: 'custom_settings'))->up($this->builder);
 
-        $this->assertNotNull($this->db->getTableSchema('custom_settings', true));
-        $this->assertNull($this->db->getTableSchema('settings', true));
+        Assert::notNull($this->db->getTableSchema('custom_settings', true));
+        Assert::null($this->db->getTableSchema('settings', true));
     }
 
-    #[Test]
     public function migratedTableIsReadableByProvider(): void
     {
         (new M260605120000CreateSettingsTable())->up($this->builder);
@@ -91,6 +91,6 @@ final class MigrationTest extends TestCase
             ],
         );
 
-        $this->assertSame('admin@example.com', $provider->get('mail.from'));
+        Assert::same($provider->get('mail.from'), 'admin@example.com');
     }
 }
