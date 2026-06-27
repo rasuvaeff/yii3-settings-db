@@ -4,61 +4,56 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3SettingsDb\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Settings\SettingDefinition;
 use Rasuvaeff\Yii3Settings\SettingType;
 use Rasuvaeff\Yii3SettingsDb\Exception\InvalidSettingRowException;
 use Rasuvaeff\Yii3SettingsDb\SettingRowMapper;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 
-#[CoversClass(SettingRowMapper::class)]
-final class SettingRowMapperTest extends TestCase
+#[Test]
+#[Covers(SettingRowMapper::class)]
+final class SettingRowMapperTest
 {
     private SettingRowMapper $mapper;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $this->mapper = new SettingRowMapper();
     }
 
-    #[Test]
     public function readsStringValue(): void
     {
         $definition = new SettingDefinition(key: 'mail.from', type: SettingType::String);
 
-        $this->assertSame('admin@example.com', $this->mapper->toValue(['value' => 'admin@example.com'], $definition));
+        Assert::same($this->mapper->toValue(['value' => 'admin@example.com'], $definition), 'admin@example.com');
     }
 
-    #[Test]
     public function readsIntValue(): void
     {
         $definition = new SettingDefinition(key: 'orders.max_items', type: SettingType::Int);
 
-        $this->assertSame(250, $this->mapper->toValue(['value' => '250'], $definition));
+        Assert::same($this->mapper->toValue(['value' => '250'], $definition), 250);
     }
 
-    #[Test]
     public function readsFloatValueFromString(): void
     {
         $definition = new SettingDefinition(key: 'vat.rate', type: SettingType::Float);
 
-        $this->assertSame(20.5, $this->mapper->toValue(['value' => '20.5'], $definition));
+        Assert::same($this->mapper->toValue(['value' => '20.5'], $definition), 20.5);
     }
 
-    #[Test]
     public function readsFloatValueFromInt(): void
     {
         $definition = new SettingDefinition(key: 'vat.rate', type: SettingType::Float);
 
-        $this->assertSame(20.0, $this->mapper->toValue(['value' => 20], $definition));
+        Assert::same($this->mapper->toValue(['value' => 20], $definition), 20.0);
     }
 
-    /**
-     * @return iterable<string, array{0: bool|int|string, 1: bool}>
-     */
     public static function boolProvider(): iterable
     {
         yield 'bool true' => [true, true];
@@ -72,118 +67,111 @@ final class SettingRowMapperTest extends TestCase
     }
 
     #[DataProvider('boolProvider')]
-    #[Test]
     public function readsBoolValue(bool|int|string $raw, bool $expected): void
     {
         $definition = new SettingDefinition(key: 'mail.enabled', type: SettingType::Bool);
 
-        $this->assertSame($expected, $this->mapper->toValue(['value' => $raw], $definition));
+        Assert::same($this->mapper->toValue(['value' => $raw], $definition), $expected);
     }
 
-    #[Test]
     public function readsArrayValueFromJson(): void
     {
         $definition = new SettingDefinition(key: 'app.features', type: SettingType::Array);
 
-        $this->assertSame(['a' => 1, 'b' => [true]], $this->mapper->toValue(['value' => '{"a":1,"b":[true]}'], $definition));
+        Assert::same($this->mapper->toValue(['value' => '{"a":1,"b":[true]}'], $definition), ['a' => 1, 'b' => [true]]);
     }
 
-    #[Test]
     public function readsArrayValueFromNativeArray(): void
     {
         $definition = new SettingDefinition(key: 'app.features', type: SettingType::Array);
 
-        $this->assertSame(['a' => 1, 'b' => [true]], $this->mapper->toValue(['value' => ['a' => 1, 'b' => [true]]], $definition));
+        Assert::same($this->mapper->toValue(['value' => ['a' => 1, 'b' => [true]]], $definition), ['a' => 1, 'b' => [true]]);
     }
 
-    #[Test]
     public function serializesStringValue(): void
     {
         $definition = new SettingDefinition(key: 'mail.from', type: SettingType::String);
 
-        $this->assertSame('admin@example.com', $this->mapper->toStorage(definition: $definition, value: 'admin@example.com'));
+        Assert::same($this->mapper->toStorage(definition: $definition, value: 'admin@example.com'), 'admin@example.com');
     }
 
-    #[Test]
     public function serializesIntValue(): void
     {
         $definition = new SettingDefinition(key: 'orders.max_items', type: SettingType::Int);
 
-        $this->assertSame('250', $this->mapper->toStorage(definition: $definition, value: 250));
+        Assert::same($this->mapper->toStorage(definition: $definition, value: 250), '250');
     }
 
-    #[Test]
     public function serializesFloatValue(): void
     {
         $definition = new SettingDefinition(key: 'vat.rate', type: SettingType::Float);
 
-        $this->assertSame('20.5', $this->mapper->toStorage(definition: $definition, value: 20.5));
+        Assert::same($this->mapper->toStorage(definition: $definition, value: 20.5), '20.5');
     }
 
-    #[Test]
     public function serializesBoolValue(): void
     {
         $definition = new SettingDefinition(key: 'mail.enabled', type: SettingType::Bool);
 
-        $this->assertSame('1', $this->mapper->toStorage(definition: $definition, value: true));
-        $this->assertSame('0', $this->mapper->toStorage(definition: $definition, value: false));
+        Assert::same($this->mapper->toStorage(definition: $definition, value: true), '1');
+        Assert::same($this->mapper->toStorage(definition: $definition, value: false), '0');
     }
 
-    #[Test]
     public function serializesArrayValue(): void
     {
         $definition = new SettingDefinition(key: 'app.features', type: SettingType::Array);
 
-        $this->assertSame('{"a":1,"b":[true]}', $this->mapper->toStorage(definition: $definition, value: ['a' => 1, 'b' => [true]]));
+        Assert::same($this->mapper->toStorage(definition: $definition, value: ['a' => 1, 'b' => [true]]), '{"a":1,"b":[true]}');
     }
 
-    #[Test]
     public function throwsWhenStringStorageContainsNonStringValue(): void
     {
         $definition = new SettingDefinition(key: 'mail.from', type: SettingType::String);
 
-        $this->expectException(InvalidSettingRowException::class);
-        $this->expectExceptionMessage('Invalid stored string for setting "mail.from": got int');
-
-        $this->mapper->toValue(['value' => 123], $definition);
+        try {
+            $this->mapper->toValue(['value' => 123], $definition);
+            Assert::fail('Expected InvalidSettingRowException');
+        } catch (InvalidSettingRowException $e) {
+            Assert::string($e->getMessage())->contains('Invalid stored string for setting "mail.from": got int');
+        }
     }
 
-    #[Test]
     public function throwsWhenBoolStorageContainsUnsupportedType(): void
     {
         $definition = new SettingDefinition(key: 'mail.enabled', type: SettingType::Bool);
 
-        $this->expectException(InvalidSettingRowException::class);
-        $this->expectExceptionMessage('Invalid stored bool: got stdClass');
-
-        $this->mapper->toValue(['value' => new \stdClass()], $definition);
+        try {
+            $this->mapper->toValue(['value' => new \stdClass()], $definition);
+            Assert::fail('Expected InvalidSettingRowException');
+        } catch (InvalidSettingRowException $e) {
+            Assert::string($e->getMessage())->contains('Invalid stored bool: got stdClass');
+        }
     }
 
-    #[Test]
     public function throwsWhenArrayJsonDecodesToNonArray(): void
     {
         $definition = new SettingDefinition(key: 'app.features', type: SettingType::Array);
 
-        $this->expectException(InvalidSettingRowException::class);
-        $this->expectExceptionMessage('Invalid stored array for setting "app.features": expected array JSON');
-
-        $this->mapper->toValue(['value' => '5'], $definition);
+        try {
+            $this->mapper->toValue(['value' => '5'], $definition);
+            Assert::fail('Expected InvalidSettingRowException');
+        } catch (InvalidSettingRowException $e) {
+            Assert::string($e->getMessage())->contains('Invalid stored array for setting "app.features": expected array JSON');
+        }
     }
 
-    #[Test]
     public function throwsWhenArrayEncodingFails(): void
     {
         $definition = new SettingDefinition(key: 'app.features', type: SettingType::Array);
 
-        $this->expectException(InvalidSettingRowException::class);
-        $this->expectExceptionMessage('Failed to encode array for setting "app.features"');
-
-        $this->mapper->toStorage(definition: $definition, value: ["bad\xB1" => 'value']);
+        try {
+            $this->mapper->toStorage(definition: $definition, value: ["bad\xB1" => 'value']);
+            Assert::fail('Expected InvalidSettingRowException');
+        } catch (InvalidSettingRowException $e) {
+            Assert::string($e->getMessage())->contains('Failed to encode array for setting "app.features"');
+        }
     }
 
-    /**
-     * @return iterable<string, array{0: SettingDefinition, 1: array<string, mixed>, 2: string}>
-     */
     public static function invalidRowProvider(): iterable
     {
         yield 'missing value' => [
@@ -244,12 +232,13 @@ final class SettingRowMapperTest extends TestCase
     }
 
     #[DataProvider('invalidRowProvider')]
-    #[Test]
     public function throwsOnInvalidRow(SettingDefinition $definition, array $row, string $message): void
     {
-        $this->expectException(InvalidSettingRowException::class);
-        $this->expectExceptionMessage($message);
-
-        $this->mapper->toValue(row: $row, definition: $definition);
+        try {
+            $this->mapper->toValue(row: $row, definition: $definition);
+            Assert::fail('Expected InvalidSettingRowException');
+        } catch (InvalidSettingRowException $e) {
+            Assert::string($e->getMessage())->contains($message);
+        }
     }
 }
