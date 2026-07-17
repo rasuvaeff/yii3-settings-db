@@ -6,6 +6,7 @@
 [![Static Analysis](https://img.shields.io/github/actions/workflow/status/rasuvaeff/yii3-settings-db/static-analysis.yml?branch=master&label=psalm)](https://github.com/rasuvaeff/yii3-settings-db/actions)
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/yii3-settings-db/php)](https://packagist.org/packages/rasuvaeff/yii3-settings-db)
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-settings-db.svg)](LICENSE.md)
+[Русская версия](README.ru.md)
 
 Database-backed writable settings provider for Yii3 applications. Implements `WritableSettingsProvider` and `SettingsInspector` from `rasuvaeff/yii3-settings`, persists runtime overrides in a DB table, and supports at-rest encryption of secret settings via libsodium (XChaCha20-Poly1305).
 
