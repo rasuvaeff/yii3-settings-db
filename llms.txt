@@ -15,7 +15,8 @@ composer require rasuvaeff/yii3-settings-db
 - Invalid stored int/float/array data throws `InvalidSettingRowException`.
 - Yii3 DI wiring keeps config `values` working by passing a `ConfigSettingsProvider` as the `DbSettingsProvider` fallback (precedence: DB row > config value > default).
 - Cache is not built into this package; use core `CachedSettingsProvider(inner: ..., definitions: ...)`.
-- Ships a `yiisoft/db-migration` migration in `migrations/`; default table name is `settings`.
+- Ships a `yiisoft/db-migration` migration as `Rasuvaeff\Yii3SettingsDb\Migration\M260605120000CreateSettingsTable` (namespaced since 2.0; register with `setSourceNamespaces()`).
+- Table name flows params (`table_prefix` + `table`) => `SettingsTableName` (VO) => both `DbSettingsProvider` and the migration. Configuring the migration through the container does NOT work: `Injector::make()` resolves by type, not by class-id.
 
 ## API
 

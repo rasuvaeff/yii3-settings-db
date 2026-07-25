@@ -9,6 +9,7 @@ use Rasuvaeff\Yii3Settings\WritableSettingsProvider;
 use Rasuvaeff\Yii3SettingsDb\Crypto\KeyRing;
 use Rasuvaeff\Yii3SettingsDb\Crypto\SodiumCipher;
 use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
+use Rasuvaeff\Yii3SettingsDb\SettingsTableName;
 use Yiisoft\Db\Connection\ConnectionInterface;
 
 /** @var array $params */
@@ -29,10 +30,18 @@ if (is_array($cipherConfig) && !empty($cipherConfig['key'])) {
 }
 
 return [
-    WritableSettingsProvider::class => static fn (ConnectionInterface $db) => new DbSettingsProvider(
+    // the migration resolves this by type through Injector::make(), so the
+    // provider and the migration can never disagree about the table
+    SettingsTableName::class => static fn (): SettingsTableName => new SettingsTableName(
+        ((string) ($dbParams['table_prefix'] ?? '')) . ((string) ($dbParams['table'] ?? 'settings')),
+    ),
+    WritableSettingsProvider::class => static fn (
+        ConnectionInterface $db,
+        SettingsTableName $table,
+    ) => new DbSettingsProvider(
         db: $db,
         definitions: $definitions,
-        table: $dbParams['table'] ?? 'settings',
+        table: $table->value,
         fallback: new ConfigSettingsProvider(
             definitions: $definitions,
             values: $settingsParams['values'] ?? [],

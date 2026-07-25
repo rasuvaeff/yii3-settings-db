@@ -49,6 +49,25 @@ make test
 
 ## Invariants & gotchas
 
+- **The table name is a VO, not a string, because `Injector` cannot resolve a
+  scalar.** `yiisoft/db-migration` builds migrations via `Injector::make()`,
+  which resolves arguments by name or by type and never reads a container
+  definition keyed by the migration's own class. That is why the 1.x recipe
+  `M...::class => ['__construct()' => ['table' => …]]` silently did nothing —
+  and why adding it made `Yiisoft\Di\Container` fatal at build time (the global
+  class was not autoloadable until the runner required the file). Never
+  reintroduce a scalar `string $table` on a migration.
+- **One source of truth for the name.** `config/di.php` builds
+  `SettingsTableName` from `table_prefix` + `table` params and passes it to both
+  the provider and the migration.
+- Migrations live in `src/Migration/` and are therefore covered by cs, psalm and
+  infection. `MigrationTableNameTest` asserts the column set — without it,
+  `ArrayItemRemoval` mutants in `createTable` escape and the MSI gate fails.
+- `composer test` runs only the Unit suite; `composer mutation` runs every
+  suite. An integration test left pointing at `migrations/` passes the first and
+  fails the second.
+- Identifier patterns are anchored with `\z`, not `$`: PCRE's `$` also matches
+  before a trailing newline.
 - `has()` means "key is declared in definitions", not "row exists in DB".
 - `get()` with no DB row delegates to the optional `fallback` provider; with no
   fallback it returns `SettingDefinition::default`.
