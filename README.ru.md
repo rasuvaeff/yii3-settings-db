@@ -123,24 +123,45 @@ Runtime-приоритет после связки:
 
 ### Миграция
 
-Зарегистрируйте поставляемый путь миграций в конфиге приложения:
+Регистрируйте поставляемую миграцию **по namespace** — без путей в `vendor/`:
 
 ```php
+// config/common/di/migration.php
+use Yiisoft\Db\Migration\Service\MigrationService;
+
 return [
-    'yiisoft/db-migration' => [
-        'sourcePaths' => [
-            dirname(__DIR__) . '/vendor/rasuvaeff/yii3-settings-db/migrations',
-        ],
+    MigrationService::class => [
+        'setSourceNamespaces()' => [[
+            'App\\Migration',
+            'Rasuvaeff\\Yii3SettingsDb\\Migration',
+        ]],
     ],
 ];
 ```
-
-Затем выполните:
 
 ```bash
 ./yii migrate:up
 ./yii migrate:down --limit=1
 ```
+
+Имя таблицы задаётся в params — то же значение получают и миграция, и
+`DbSettingsProvider`:
+
+```php
+// config/common/params.php
+'rasuvaeff/yii3-settings-db' => [
+    'table' => 'my_settings',
+    'table_prefix' => '',   // добавляется перед `table`; например 'rsv_' → rsv_my_settings
+],
+```
+
+> **Не настраивайте миграцию через DI-контейнер.**
+> `M...::class => ['__construct()' => ['table' => ...]]` не работает: миграцию
+> создаёт `Injector::make()`, который резолвит аргументы по типу и никогда не
+> читает определение контейнера по имени класса самой миграции. Хуже того,
+> добавление такого определения роняет контейнер на этапе сборки в **каждом**
+> запросе, потому что класс не автозагружается, пока его не подключит раннер
+> миграций. Этот рецепт был описан в 1.x и никогда не работал.
 
 ### Кэш-декоратор ядра
 

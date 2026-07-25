@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3SettingsDb\Tests\Integration;
 
-use M260605120000CreateSettingsTable;
 use Rasuvaeff\Yii3Settings\SettingDefinition;
 use Rasuvaeff\Yii3Settings\SettingType;
 use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
+use Rasuvaeff\Yii3SettingsDb\Migration\M260605120000CreateSettingsTable;
+use Rasuvaeff\Yii3SettingsDb\SettingsTableName;
 use Testo\Assert;
 use Testo\Codecov\CoversNothing;
 use Testo\Lifecycle\AfterTest;
@@ -32,8 +33,6 @@ final class MigrationTest
     #[BeforeTest]
     public function setUp(): void
     {
-        require_once dirname(__DIR__, 2) . '/migrations/M260605120000CreateSettingsTable.php';
-
         $driver = new SqliteDriver(dsn: 'sqlite::memory:');
         $schemaCache = new SchemaCache(psrCache: new MemorySimpleCache());
         $this->db = new SqliteConnection(driver: $driver, schemaCache: $schemaCache);
@@ -67,7 +66,7 @@ final class MigrationTest
 
     public function createsTableWithCustomName(): void
     {
-        (new M260605120000CreateSettingsTable(table: 'custom_settings'))->up($this->builder);
+        (new M260605120000CreateSettingsTable(table: new SettingsTableName('custom_settings')))->up($this->builder);
 
         Assert::notNull($this->db->getTableSchema('custom_settings', true));
         Assert::null($this->db->getTableSchema('settings', true));

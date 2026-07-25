@@ -61,7 +61,7 @@ final readonly class SettingRowMapper
             return $value;
         }
 
-        if (\is_string($value) && preg_match('/^-?\d+$/', $value) === 1) {
+        if (\is_string($value) && preg_match('/^-?\d+\z/', $value) === 1) {
             return (int) $value;
         }
 

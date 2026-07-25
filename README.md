@@ -116,24 +116,45 @@ Runtime precedence after wiring:
 
 ### Migration
 
-Register the shipped migration path in your app config:
+Register the bundled migration **by namespace** — no vendor paths:
 
 ```php
+// config/common/di/migration.php
+use Yiisoft\Db\Migration\Service\MigrationService;
+
 return [
-    'yiisoft/db-migration' => [
-        'sourcePaths' => [
-            dirname(__DIR__) . '/vendor/rasuvaeff/yii3-settings-db/migrations',
-        ],
+    MigrationService::class => [
+        'setSourceNamespaces()' => [[
+            'App\\Migration',
+            'Rasuvaeff\\Yii3SettingsDb\\Migration',
+        ]],
     ],
 ];
 ```
-
-Then run:
 
 ```bash
 ./yii migrate:up
 ./yii migrate:down --limit=1
 ```
+
+Set the table name in params — the same value reaches the migration **and**
+`DbSettingsProvider`:
+
+```php
+// config/common/params.php
+'rasuvaeff/yii3-settings-db' => [
+    'table' => 'my_settings',
+    'table_prefix' => '',   // prepended to `table`; e.g. 'rsv_' → rsv_my_settings
+],
+```
+
+> **Do not configure the migration through the DI container.**
+> `M...::class => ['__construct()' => ['table' => ...]]` does not work: the
+> migration is built by `Injector::make()`, which resolves arguments by type
+> and never reads a container definition keyed by the migration's own class.
+> Worse, adding that definition makes the container fatal at build time in
+> **every** request, because the class is not autoloadable until the migration
+> runner requires it. That recipe was documented in 1.x; it never worked.
 
 ### Core cache decorator
 

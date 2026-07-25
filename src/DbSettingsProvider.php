@@ -29,6 +29,8 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
 
     private SettingRowMapper $rowMapper;
 
+    private string $table;
+
     /**
      * @param array<string, SettingDefinition|array{type: string, default?: mixed, secret?: bool}> $definitions
      * @param non-empty-string $table
@@ -39,10 +41,13 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
     public function __construct(
         private ConnectionInterface $db,
         array $definitions = [],
-        private string $table = 'settings',
+        string $table = 'settings',
         private ?SettingsProvider $fallback = null,
         private ?Cipher $cipher = null,
     ) {
+        // validation lives in the value object, so the provider and the bundled
+        // migration cannot disagree about what a valid table name is
+        $this->table = (new SettingsTableName($table))->value;
         $this->definitions = ConfigSettingsProvider::normalizeDefinitions($definitions);
         $this->rowMapper = new SettingRowMapper();
 
