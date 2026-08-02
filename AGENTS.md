@@ -13,7 +13,7 @@ Public API: `DbSettingsProvider`, `Console\ReencryptSettingsCommand`,
 `Exception\InvalidSettingRowException`.
 `SettingRowMapper` is `@internal` and is the only place that knows DB row ↔ typed
 setting conversion. The package ships a `yiisoft/db-migration` migration in
-`migrations/` and Yii3 config-plugin wiring in `config/`.
+`src/Migration/` and Yii3 config-plugin wiring in `config/`.
 
 ## Golden rules
 
@@ -63,6 +63,12 @@ make test
 - Migrations live in `src/Migration/` and are therefore covered by cs, psalm and
   infection. `MigrationTableNameTest` asserts the column set — without it,
   `ArrayItemRemoval` mutants in `createTable` escape and the MSI gate fails.
+- `setSourceNamespaces()` does NOT find them on any released
+  `yiisoft/db-migration` (≤ 2.0.1): it matches the PSR-4 map by string prefix,
+  so `Rasuvaeff\Yii3SettingsDb\Migration` resolves into the core package and
+  discovery silently finds zero — `migrate:up` exits 0 having created nothing.
+  Until an upstream release carries the fix, migrations are applied directly via
+  `Injector::make($class)->up($builder)` — see the README.
 - `composer test` runs only the Unit suite; `composer mutation` runs every
   suite. An integration test left pointing at `migrations/` passes the first and
   fails the second.
