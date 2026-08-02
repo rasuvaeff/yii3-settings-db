@@ -16,6 +16,7 @@ use Testo\Test;
 
 #[Test]
 #[Covers(SettingRowMapper::class)]
+#[Covers(InvalidSettingRowException::class)]
 final class SettingRowMapperTest
 {
     private SettingRowMapper $mapper;
