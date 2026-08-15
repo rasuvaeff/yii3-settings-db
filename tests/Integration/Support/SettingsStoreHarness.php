@@ -21,15 +21,15 @@ use Yiisoft\Test\Support\SimpleCache\MemorySimpleCache;
  * The system under test for the model-based property in
  * {@see \Rasuvaeff\Yii3SettingsDb\Tests\Integration\DbSettingsProviderStatefulTest}.
  */
-final class SettingsStoreHarness
+final readonly class SettingsStoreHarness
 {
     public const int DEFAULT_VALUE = 0;
 
-    private readonly ConnectionInterface $db;
-    private readonly DbSettingsProvider $provider;
+    private ConnectionInterface $db;
+    private DbSettingsProvider $provider;
 
     /** @var list<string> */
-    private readonly array $keys;
+    private array $keys;
 
     public function __construct(int $settingCount)
     {

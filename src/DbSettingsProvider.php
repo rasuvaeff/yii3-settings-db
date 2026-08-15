@@ -165,7 +165,6 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
 
         $effectiveValue = null;
         if (!$definition->isSecret()) {
-            /** @var mixed */
             $effectiveValue = $hasStoredOverride
                 ? $this->rowMapper->toValue(row: $row, definition: $definition)
                 : $this->get($key);
