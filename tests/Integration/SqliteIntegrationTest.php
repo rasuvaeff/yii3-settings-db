@@ -107,7 +107,7 @@ final class SqliteIntegrationTest
     public function setAndGetBoolValue(): void
     {
         $provider = $this->provider();
-        $provider->set('mail.enabled', false);
+        $provider->set('mail.enabled', value: false);
 
         Assert::false($provider->get('mail.enabled'));
     }
@@ -518,7 +518,7 @@ final class SqliteIntegrationTest
     {
         $provider = $this->provider();
         $provider->set('mail.from', 'admin@example.com');
-        $provider->set('mail.enabled', false);
+        $provider->set('mail.enabled', value: false);
 
         $result = $provider->getByPrefix('mail.');
 

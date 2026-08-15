@@ -24,10 +24,10 @@ use Yiisoft\Db\Migration\TransactionalMigrationInterface;
  *
  * @api
  */
-final class M260605120000CreateSettingsTable implements RevertibleMigrationInterface, TransactionalMigrationInterface
+final readonly class M260605120000CreateSettingsTable implements RevertibleMigrationInterface, TransactionalMigrationInterface
 {
     public function __construct(
-        private readonly SettingsTableName $table = new SettingsTableName(),
+        private SettingsTableName $table = new SettingsTableName(),
     ) {}
 
     #[\Override]

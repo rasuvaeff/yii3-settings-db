@@ -77,7 +77,7 @@ final readonly class SettingRowMapper
         }
 
         if (\is_int($value)) {
-            return $value / 1;
+            return $value;
         }
 
         if (\is_string($value) && is_numeric($value)) {
