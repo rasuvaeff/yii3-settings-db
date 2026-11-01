@@ -10,6 +10,7 @@ use Rasuvaeff\Yii3SettingsDb\Crypto\KeyRing;
 use Rasuvaeff\Yii3SettingsDb\Crypto\SodiumCipher;
 use Testo\Assert;
 use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
 use Testo\Expect;
 use Testo\Lifecycle\BeforeTest;
 use Testo\Test;
@@ -81,6 +82,27 @@ final class SodiumCipherTest
     {
         Expect::exception(DecryptionException::class);
         $this->cipher->decrypt(ciphertext: 'not-enc:v:key-1:YQ==:YQ==', aad: 'key');
+    }
+
+    #[DataProvider('malformedEnvelopeProvider')]
+    public function malformedEnvelopeNamesTheProblem(string $envelope, string $message): void
+    {
+        Expect::exception(DecryptionException::class)->withMessageContaining($message);
+
+        $this->cipher->decrypt(ciphertext: $envelope, aad: 'key');
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function malformedEnvelopeProvider(): iterable
+    {
+        yield 'too few parts' => ['enc:v:key-1:YQ==', 'Invalid envelope format'];
+        yield 'unknown version' => ['enc:x:key-1:YQ==:YQ==', 'Invalid envelope format'];
+        yield 'colon inside the last part' => ['enc:v:key-1:YQ==:YQ==:extra', 'Invalid envelope encoding'];
+        yield 'only the ciphertext is not base64' => ['enc:v:key-1:YQ==:!!!', 'Invalid envelope encoding'];
+        yield 'only the nonce is not base64' => ['enc:v:key-1:!!!:YQ==', 'Invalid envelope encoding'];
+        yield 'nonce of the wrong length' => ['enc:v:key-1:YQ==:YQ==', 'Invalid nonce length'];
     }
 
     public function keyRotationNewKeyEncryptsOldKeyDecrypts(): void

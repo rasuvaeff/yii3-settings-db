@@ -9,6 +9,7 @@ use Rasuvaeff\Yii3Settings\Crypto\UnknownEncryptionKeyException;
 use Rasuvaeff\Yii3SettingsDb\Crypto\KeyRing;
 use Testo\Assert;
 use Testo\Codecov\Covers;
+use Testo\Expect;
 use Testo\Test;
 
 #[Test]
@@ -47,6 +48,13 @@ final class KeyRingTest
         Assert::same($keyRing->activeKeyId(), 'key-v2');
         Assert::true($keyRing->keyFor('key-v1') !== '');
         Assert::true($keyRing->keyFor('key-v2') !== '');
+    }
+
+    public function throwsOnEmptyKeySet(): void
+    {
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('At least one key is required');
+
+        new KeyRing(keys: [], activeKeyId: 'any');
     }
 
     public function throwsOnActiveKeyNotFound(): void
