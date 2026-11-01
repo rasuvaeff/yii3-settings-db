@@ -497,6 +497,100 @@ final class SqliteIntegrationTest
         Assert::same($provider->get('billing.stripe_key'), 'sk_val');
     }
 
+    public function reencryptSecretsSkipsRowsWithoutADefinitionOrASecretAndKeepsGoing(): void
+    {
+        $provider = $this->providerWithTwoSecrets($this->keyRing('active'));
+        $this->insertRawRow(key: 'unknown.key', value: 'x');
+        $this->insertRawRow(key: 'mail.from', value: 'admin@example.com');
+        $this->insertRawRow(key: 'billing.stripe_key', value: 'sk_plain');
+
+        Assert::same($provider->reencryptSecrets(), 1);
+        Assert::same($provider->get('billing.stripe_key'), 'sk_plain');
+        Assert::same($this->queryStoredValue('unknown.key'), 'x');
+    }
+
+    public function reencryptSecretsSkipsAnEnvelopeOnTheActiveKeyAndKeepsGoing(): void
+    {
+        $provider = $this->providerWithTwoSecrets($this->keyRing('active'));
+        $provider->set('billing.stripe_key', 'sk_current');
+        $stored = $this->queryStoredValue('billing.stripe_key');
+        $this->insertRawRow(key: 'billing.webhook_secret', value: 'whsec_plain');
+
+        Assert::same($provider->reencryptSecrets(), 1);
+        Assert::same($this->queryStoredValue('billing.stripe_key'), $stored);
+        Assert::same($provider->get('billing.webhook_secret'), 'whsec_plain');
+    }
+
+    public function reencryptSecretsMovesAnOldKeyEnvelopeToTheActiveKeyAndLeavesOtherRowsAlone(): void
+    {
+        $oldRing = $this->keyRing('old');
+        $this->providerWithTwoSecrets($oldRing)->set('billing.stripe_key', 'sk_old_key');
+        $ring = new KeyRing(
+            keys: ['old' => $oldRing->keyFor('old'), 'new' => random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES)],
+            activeKeyId: 'new',
+        );
+        $provider = $this->providerWithTwoSecrets($ring);
+        $provider->set('billing.webhook_secret', 'whsec_new_key');
+        $untouched = $this->queryStoredValue('billing.webhook_secret');
+
+        Assert::same($provider->reencryptSecrets(), 1);
+        Assert::string((string) $this->queryStoredValue('billing.stripe_key'))->contains('enc:v:new:');
+        Assert::same($provider->get('billing.stripe_key'), 'sk_old_key');
+        Assert::same($this->queryStoredValue('billing.webhook_secret'), $untouched);
+        Assert::same($provider->get('billing.webhook_secret'), 'whsec_new_key');
+    }
+
+    public function reencryptSecretsSkipsAnEnvelopeItCannotDecryptAndKeepsGoing(): void
+    {
+        $provider = $this->providerWithTwoSecrets($this->keyRing('active'));
+        $this->insertRawRow(key: 'billing.stripe_key', value: 'enc:v:retired:YQ==:YQ==');
+        $this->insertRawRow(key: 'billing.webhook_secret', value: 'whsec_plain');
+
+        Assert::same($provider->reencryptSecrets(), 1);
+        Assert::same($this->queryStoredValue('billing.stripe_key'), 'enc:v:retired:YQ==:YQ==');
+        Assert::same($provider->get('billing.webhook_secret'), 'whsec_plain');
+    }
+
+    public function reencryptSecretsSkipsAnEnvelopeWithoutAKeyIdSeparator(): void
+    {
+        $provider = $this->providerWithTwoSecrets($this->keyRing('active'));
+        $this->insertRawRow(key: 'billing.stripe_key', value: 'enc:v:nokeyid');
+
+        Assert::same($provider->reencryptSecrets(), 0);
+        Assert::same($this->queryStoredValue('billing.stripe_key'), 'enc:v:nokeyid');
+    }
+
+    public function reencryptSecretsSkipsAStoredValueThatIsNotAString(): void
+    {
+        $provider = $this->providerOnLooseTable($this->keyRing('active'));
+        $this->insertLooseRow(key: 'billing.stripe_key', value: null);
+        $this->insertLooseRow(key: 'billing.webhook_secret', value: 'whsec_plain');
+
+        Assert::same($provider->reencryptSecrets(), 1);
+    }
+
+    public function aSecretWhoseStoredValueIsNotAStringIsMalformed(): void
+    {
+        $provider = $this->providerOnLooseTable($this->keyRing('active'));
+        $this->insertLooseRow(key: 'billing.stripe_key', value: null);
+
+        Expect::exception(InvalidArgumentException::class)
+            ->withMessageContaining('Malformed stored value for secret setting "billing.stripe_key"');
+
+        $provider->get('billing.stripe_key');
+    }
+
+    public function aSecretWhoseStoredValueIsNotAStringIsMalformedInAPrefixRead(): void
+    {
+        $provider = $this->providerOnLooseTable($this->keyRing('active'));
+        $this->insertLooseRow(key: 'billing.stripe_key', value: null);
+
+        Expect::exception(InvalidArgumentException::class)
+            ->withMessageContaining('Malformed stored value for secret setting "billing.stripe_key"');
+
+        $provider->getByPrefix('billing.');
+    }
+
     public function dbSettingsProviderImplementsInspector(): void
     {
         $provider = $this->providerWithCipher();
@@ -668,6 +762,58 @@ final class SqliteIntegrationTest
             definitions: $defs,
             cipher: $cipher,
         );
+    }
+
+    private function keyRing(string $activeKeyId): KeyRing
+    {
+        return new KeyRing(
+            keys: [$activeKeyId => random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES)],
+            activeKeyId: $activeKeyId,
+        );
+    }
+
+    /**
+     * @return array<string, SettingDefinition>
+     */
+    private function definitionsWithTwoSecrets(): array
+    {
+        $defs = $this->definitionsWithSecret();
+        $defs['billing.webhook_secret'] = new SettingDefinition(key: 'billing.webhook_secret', type: SettingType::String, secret: true);
+
+        return $defs;
+    }
+
+    private function providerWithTwoSecrets(KeyRing $keyRing): DbSettingsProvider
+    {
+        return new DbSettingsProvider(
+            db: $this->db,
+            definitions: $this->definitionsWithTwoSecrets(),
+            cipher: new SodiumCipher(keyRing: $keyRing),
+        );
+    }
+
+    /**
+     * A table whose `value` column has no type affinity, so SQLite hands an
+     * NULL back as NULL (the regular table forbids it).
+     */
+    private function providerOnLooseTable(KeyRing $keyRing): DbSettingsProvider
+    {
+        $this->db->createCommand(sql: 'DROP TABLE IF EXISTS loose')->execute();
+        $this->db->createCommand(sql: 'CREATE TABLE loose ("key" VARCHAR(190) PRIMARY KEY, "value")')->execute();
+
+        return new DbSettingsProvider(
+            db: $this->db,
+            definitions: $this->definitionsWithTwoSecrets(),
+            table: 'loose',
+            cipher: new SodiumCipher(keyRing: $keyRing),
+        );
+    }
+
+    private function insertLooseRow(string $key, ?string $value): void
+    {
+        $this->db->createCommand(sql: 'INSERT INTO loose ("key", "value") VALUES (:key, :value)')
+            ->bindValues([':key' => $key, ':value' => $value])
+            ->execute();
     }
 
     private function readonlyProvider(): DbSettingsProvider

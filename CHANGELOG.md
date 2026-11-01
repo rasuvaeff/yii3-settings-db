@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Mutation testing now counts uncovered code (`--with-uncovered`, template mutator settings): overall MSI 86% before, 94.5% after, against `minMsi` 92. Added tests for `SodiumCipher` malformed envelopes (message per failure), `KeyRing` empty key set, `SettingRowMapper` native int/float values, and `reencryptSecrets()` (unknown/non-secret rows, active-key and old-key envelopes, undecryptable envelopes, non-string stored values, secret reads of a non-string stored value). No src changes.
+
 ## 2.0.2 — 2026-08-04
 
 ### Fixed

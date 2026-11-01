@@ -55,6 +55,20 @@ final class SettingRowMapperTest
         Assert::same($this->mapper->toValue(['value' => 20], $definition), 20.0);
     }
 
+    public function readsIntValueFromNativeInt(): void
+    {
+        $definition = new SettingDefinition(key: 'orders.max_items', type: SettingType::Int);
+
+        Assert::same($this->mapper->toValue(['value' => 250], $definition), 250);
+    }
+
+    public function readsFloatValueFromNativeFloat(): void
+    {
+        $definition = new SettingDefinition(key: 'vat.rate', type: SettingType::Float);
+
+        Assert::same($this->mapper->toValue(['value' => 20.5], $definition), 20.5);
+    }
+
     public static function boolProvider(): iterable
     {
         yield 'bool true' => [true, true];
