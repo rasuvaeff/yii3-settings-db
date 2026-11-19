@@ -260,6 +260,55 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
     }
 
     /**
+     * Lists all keys declared in definitions, in declaration order.
+     *
+     * @return list<string>
+     */
+    public function definedKeys(): array
+    {
+        return array_keys($this->definitions);
+    }
+
+    /**
+     * Lists stored keys that no longer have a definition. Such rows are
+     * invisible to reads but keep occupying the table until pruned.
+     *
+     * @return list<string>
+     */
+    public function staleKeys(): array
+    {
+        $stale = [];
+
+        foreach ($this->storedKeys() as $key) {
+            if (!isset($this->definitions[$key])) {
+                $stale[] = $key;
+            }
+        }
+
+        return $stale;
+    }
+
+    /**
+     * Removes all stored keys without a definition.
+     *
+     * @return int number of removed rows
+     */
+    public function pruneStale(): int
+    {
+        $stale = $this->staleKeys();
+
+        if ($stale === []) {
+            return 0;
+        }
+
+        $this->db->createCommand()
+            ->delete($this->table, ['key' => $stale])
+            ->execute();
+
+        return count($stale);
+    }
+
+    /**
      * Resolves effective values for all defined keys whose name starts with `$prefix`.
      *
      * @param non-empty-string $prefix
@@ -384,6 +433,26 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
         }
 
         return $this->definitions[$key];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function storedKeys(): array
+    {
+        $keys = (new Query($this->db))
+            ->from($this->table)
+            ->select('key')
+            ->column();
+
+        $result = [];
+        foreach ($keys as $key) {
+            if (\is_string($key)) {
+                $result[] = $key;
+            }
+        }
+
+        return $result;
     }
 
     /**

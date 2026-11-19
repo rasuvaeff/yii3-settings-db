@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added `settings:report` and `settings:prune [--apply]` console commands plus `DbSettingsProvider::staleKeys()` / `pruneStale()` (#34). `settings:report` prints the source of every defined setting (`db` / `config` / `default`), lists stored keys without a definition, validates stored values (secrets via decryption, values never printed) and exits 1 when anything is found — usable as a CI gate. `settings:prune` lists stale rows in a dry run and removes them with `--apply`; override rows of defined keys are never touched. Deliberately no seeding/sync: the DB stores overrides only, and a seeded row would shadow config values.
+
 - Mutation testing now counts uncovered code (`--with-uncovered`, template mutator settings): overall MSI 86% before, 94.5% after, against `minMsi` 92. Added tests for `SodiumCipher` malformed envelopes (message per failure), `KeyRing` empty key set, `SettingRowMapper` native int/float values, and `reencryptSecrets()` (unknown/non-secret rows, active-key and old-key envelopes, undecryptable envelopes, non-string stored values, secret reads of a non-string stored value). No src changes.
 
 ## 2.0.2 — 2026-08-04

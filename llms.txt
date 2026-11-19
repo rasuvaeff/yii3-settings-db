@@ -53,6 +53,10 @@ $provider->setMany(['mail.from' => 'x', 'mail.enabled' => false]); // transactio
 
 // Key rotation
 $provider->reencryptSecrets(); // int — count of re-encrypted keys
+
+// Maintenance
+$provider->staleKeys();  // list<string> — stored keys without a definition
+$provider->pruneStale(); // int — number of removed stale rows
 ```
 
 ### InvalidSettingRowException
@@ -83,4 +87,12 @@ The shipped `config/di.php` binds:
 
 `ReencryptSettingsCommand` (`settings:reencrypt`, Symfony Console, `#[AsCommand]`).
 Calls `DbSettingsProvider::reencryptSecrets()`. No extra options.
+
+`SettingsReportCommand` (`settings:report`). Prints per-key source
+(`db` / `config` / `default`), stale stored keys and invalid stored values
+(secrets are validated via decryption, values never printed). Exit 1 when any
+problem is found — usable as a CI gate.
+
+`SettingsPruneCommand` (`settings:prune [--apply]`). Lists stale stored keys
+(dry run) or removes them with `--apply` via `DbSettingsProvider::pruneStale()`.
 Requires `symfony/console ^7` (usually provided by `yiisoft/yii-console` in host).

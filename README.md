@@ -249,12 +249,45 @@ the entire batch rolls back.
 ```bash
 # Re-encrypt all secret values with the current active key
 ./yii settings:reencrypt
+
+# Report setting sources (db / config / default), stale stored keys
+# and invalid stored values; exits 1 when anything is found (CI-ready)
+./yii settings:report
+
+# List stored keys without a definition (dry run)
+./yii settings:prune
+
+# Actually remove the stale rows
+./yii settings:prune --apply
 ```
 
-The `settings:reencrypt` command runs `reencryptSecrets()` on the active
-`DbSettingsProvider` instance. Works in any Symfony Console /
-`yiisoft/yii-console` application. The `ReencryptSettingsCommand` class is
-autowired via DI.
+All commands work in any Symfony Console / `yiisoft/yii-console` application
+and are autowired via DI.
+
+`settings:report` validates every defined key by resolving its stored value
+(secrets are decrypted, their values are never printed) and exits with failure
+when stale or invalid rows exist, so it can gate CI:
+
+```text
+Setting sources:
+  mail.from                     db
+  cache.ttl                     config
+  debug.enabled                 default
+
+Stale stored keys (no definition; prune with settings:prune --apply):
+  legacy.flag
+
+Invalid stored value for "max.items": Invalid stored int for setting "max.items": got string
+
+2 problem(s) found.
+```
+
+The underlying provider operations are also callable directly:
+
+```php
+$provider->staleKeys();  // list<string> — stored keys without a definition
+$provider->pruneStale(); // int — number of removed rows
+```
 
 ### Public API
 
@@ -264,6 +297,8 @@ autowired via DI.
 | `KeyRing` | Key management with versioning and active key |
 | `SodiumCipher` | XChaCha20-Poly1305 encryption via libsodium |
 | `ReencryptSettingsCommand` | Console command (`settings:reencrypt`) |
+| `SettingsReportCommand` | Console command (`settings:report`) |
+| `SettingsPruneCommand` | Console command (`settings:prune [--apply]`) |
 | `InvalidSettingRowException` | Stored row type mismatch |
 
 ## Security

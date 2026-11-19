@@ -256,12 +256,46 @@ $provider->setMany([
 ```bash
 # Re-encrypt all secret values with the current active key
 ./yii settings:reencrypt
+
+# Report setting sources (db / config / default), stale stored keys
+# and invalid stored values; exits 1 when anything is found (CI-ready)
+./yii settings:report
+
+# List stored keys without a definition (dry run)
+./yii settings:prune
+
+# Actually remove the stale rows
+./yii settings:prune --apply
 ```
 
-Команда `settings:reencrypt` запускает `reencryptSecrets()` на активном
-экземпляре `DbSettingsProvider`. Работает в любом приложении на Symfony
-Console / `yiisoft/yii-console`. Класс `ReencryptSettingsCommand`
-автосвязывается через DI.
+Все команды работают в любом приложении на Symfony Console /
+`yiisoft/yii-console` и автосвязываются через DI.
+
+`settings:report` валидирует каждый определённый ключ, разрешая его
+сохранённое значение (secrets дешифруются, их значения никогда не печатаются),
+и завершается с ошибкой, если есть stale или битые строки, — годится для гейта
+в CI:
+
+```text
+Setting sources:
+  mail.from                     db
+  cache.ttl                     config
+  debug.enabled                 default
+
+Stale stored keys (no definition; prune with settings:prune --apply):
+  legacy.flag
+
+Invalid stored value for "max.items": Invalid stored int for setting "max.items": got string
+
+2 problem(s) found.
+```
+
+Базовые операции провайдера доступны и напрямую:
+
+```php
+$provider->staleKeys();  // list<string> — сохранённые ключи без определения
+$provider->pruneStale(); // int — число удалённых строк
+```
 
 ### Публичный API
 
@@ -271,6 +305,8 @@ Console / `yiisoft/yii-console`. Класс `ReencryptSettingsCommand`
 | `KeyRing` | Управление ключами с версионированием и активным ключом |
 | `SodiumCipher` | Шифрование XChaCha20-Poly1305 через libsodium |
 | `ReencryptSettingsCommand` | Консольная команда (`settings:reencrypt`) |
+| `SettingsReportCommand` | Консольная команда (`settings:report`) |
+| `SettingsPruneCommand` | Консольная команда (`settings:prune [--apply]`) |
 | `InvalidSettingRowException` | Несовпадение типа в сохранённой строке |
 
 ## Безопасность
