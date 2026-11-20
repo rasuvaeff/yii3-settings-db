@@ -155,7 +155,7 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
         $definition = $this->definition($key);
         $row = $this->queryRow($key);
         $hasStoredOverride = $row !== null;
-        $source = $this->sourceOf($key);
+        $source = $this->resolveSource($key, $hasStoredOverride);
 
         $effectiveValue = null;
         if (!$definition->isSecret()) {
@@ -185,15 +185,7 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
     {
         $this->definition($key);
 
-        if ($this->queryRow($key) !== null) {
-            return 'db';
-        }
-
-        if ($this->fallback !== null && $this->fallback->has($key)) {
-            return 'config';
-        }
-
-        return 'default';
+        return $this->resolveSource($key, $this->queryRow($key) !== null);
     }
 
     /**
@@ -447,6 +439,22 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
         }
 
         return $this->definitions[$key];
+    }
+
+    /**
+     * @return 'db'|'config'|'default'
+     */
+    private function resolveSource(string $key, bool $hasStoredOverride): string
+    {
+        if ($hasStoredOverride) {
+            return 'db';
+        }
+
+        if ($this->fallback !== null && $this->fallback->has($key)) {
+            return 'config';
+        }
+
+        return 'default';
     }
 
     /**

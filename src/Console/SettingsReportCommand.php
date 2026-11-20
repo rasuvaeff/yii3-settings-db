@@ -12,7 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Reports the source of every defined setting (`db` / `config` / `default`),
- * stored keys without a definition (stale rows) and stored values that fail
+ * stored keys without a definition (stale rows) and values that fail
  * validation. Exits with failure when any problem is found, so it can gate CI.
  * Secret values are never printed.
  *
@@ -20,7 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 #[AsCommand(
     name: 'settings:report',
-    description: 'Report setting sources, stale stored keys and invalid stored values',
+    description: 'Report setting sources, stale stored keys and invalid values',
 )]
 final class SettingsReportCommand extends Command
 {
