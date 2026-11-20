@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.2.0 — 2026-11-20
 
 - `settings:report` now prints the source row for every defined key, including invalid ones, and labels the problem line by the real source (`Invalid db|config|default value for "key": …`) instead of always "stored" (#37). New `DbSettingsProvider::sourceOf()` resolves the source without reading the value.
 - Dev: `rector.php` skips `ExplicitNullableObjectInstanceRector`, the Rector 2.8 successor of the deprecated `FlipTypeControlToUseExclusiveTypeRector`.
