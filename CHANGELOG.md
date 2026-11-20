@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.1.0 — 2026-11-20
 
 - Added `settings:report` and `settings:prune [--apply]` console commands plus `DbSettingsProvider::staleKeys()` / `pruneStale()` (#34). `settings:report` prints the source of every defined setting (`db` / `config` / `default`), lists stored keys without a definition, validates stored values (secrets via decryption, values never printed) and exits 1 when anything is found — usable as a CI gate. `settings:prune` lists stale rows in a dry run and removes them with `--apply`; override rows of defined keys are never touched. Deliberately no seeding/sync: the DB stores overrides only, and a seeded row would shadow config values.
 
