@@ -270,15 +270,12 @@ when stale or invalid rows exist, so it can gate CI:
 
 ```text
 Setting sources:
-  mail.from                     db
-  cache.ttl                     config
-  debug.enabled                 default
-
+  mail.from                                db
+  cache.ttl                                config
+Invalid stored value for "max.items": Invalid stored int for setting "max.items": got string
+  debug.enabled                            default
 Stale stored keys (no definition; prune with settings:prune --apply):
   legacy.flag
-
-Invalid stored value for "max.items": Invalid stored int for setting "max.items": got string
-
 2 problem(s) found.
 ```
 

@@ -301,11 +301,9 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
             return 0;
         }
 
-        $this->db->createCommand()
+        return $this->db->createCommand()
             ->delete($this->table, ['key' => $stale])
             ->execute();
-
-        return count($stale);
     }
 
     /**
