@@ -38,28 +38,17 @@ final class SettingsReportCommand extends Command
         $output->writeln('Setting sources:');
 
         foreach ($this->settings->definedKeys() as $key) {
+            $source = $this->settings->sourceOf($key);
+            $output->writeln(sprintf('  %-40s %s', $key, $source));
+
             try {
-                $state = $this->settings->describe($key);
-            } catch (\Throwable $e) {
-                $problems++;
-                $output->writeln(sprintf('Invalid stored value for "%s": %s', $key, $e->getMessage()));
-
-                continue;
-            }
-
-            $output->writeln(sprintf('  %-40s %s', $state->key, $state->source));
-
-            if (!$state->isSecret) {
-                continue;
-            }
-
-            // describe() skips the value of secret settings; only decrypting
-            // them proves the stored envelope is intact
-            try {
+                // get() validates the value of every setting, secrets included
+                // (decryption proves the stored envelope is intact) — without
+                // printing it
                 $this->settings->get($key);
             } catch (\Throwable $e) {
                 $problems++;
-                $output->writeln(sprintf('Invalid stored value for "%s": %s', $key, $e->getMessage()));
+                $output->writeln(sprintf('Invalid %s value for "%s": %s', $source, $key, $e->getMessage()));
             }
         }
 

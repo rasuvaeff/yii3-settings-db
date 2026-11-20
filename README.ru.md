@@ -280,7 +280,8 @@ $provider->setMany([
 Setting sources:
   mail.from                                db
   cache.ttl                                config
-Invalid stored value for "max.items": Invalid stored int for setting "max.items": got string
+  max.items                                db
+Invalid db value for "max.items": Invalid stored int for setting "max.items": got string
   debug.enabled                            default
 Stale stored keys (no definition; prune with settings:prune --apply):
   legacy.flag
@@ -291,6 +292,7 @@ Stale stored keys (no definition; prune with settings:prune --apply):
 
 ```php
 $provider->staleKeys();  // list<string> — сохранённые ключи без определения
+$provider->sourceOf($key); // 'db' | 'config' | 'default' — откуда берётся эффективное значение
 $provider->pruneStale(); // int — число удалённых строк
 ```
 

@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3SettingsDb\Tests;
 
+use Rasuvaeff\Yii3Settings\Exception\UnknownSettingException;
 use Rasuvaeff\Yii3Settings\SettingDefinition;
+use Rasuvaeff\Yii3Settings\SettingsProvider;
 use Rasuvaeff\Yii3Settings\SettingType;
 use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
 use Testo\Assert;
+use Testo\Assert\ExpectException;
 use Testo\Codecov\Covers;
 use Testo\Lifecycle\AfterTest;
 use Testo\Lifecycle\BeforeTest;
@@ -40,6 +43,43 @@ final class DbSettingsProviderMaintenanceTest
     public function tearDown(): void
     {
         $this->db->close();
+    }
+
+    public function sourceOfReportsDbConfigAndDefault(): void
+    {
+        $fallback = new class implements SettingsProvider {
+            #[\Override]
+            public function has(string $key): bool
+            {
+                return $key === 'from.config';
+            }
+
+            #[\Override]
+            public function get(string $key): mixed
+            {
+                return 'x';
+            }
+        };
+        $provider = new DbSettingsProvider(
+            db: $this->db,
+            definitions: [
+                'from.db' => new SettingDefinition(key: 'from.db', type: SettingType::String, default: 'd'),
+                'from.config' => new SettingDefinition(key: 'from.config', type: SettingType::String, default: 'd'),
+                'from.default' => new SettingDefinition(key: 'from.default', type: SettingType::String, default: 'd'),
+            ],
+            fallback: $fallback,
+        );
+        $this->db->createCommand()->upsert('settings', ['key' => 'from.db', 'value' => 'v'])->execute();
+
+        Assert::same($provider->sourceOf('from.db'), 'db');
+        Assert::same($provider->sourceOf('from.config'), 'config');
+        Assert::same($provider->sourceOf('from.default'), 'default');
+    }
+
+    #[ExpectException(UnknownSettingException::class)]
+    public function sourceOfRejectsUnknownKeys(): void
+    {
+        $this->provider()->sourceOf('nope');
     }
 
     public function staleKeysEmptyWhenTableIsEmpty(): void

@@ -57,6 +57,7 @@ $provider->reencryptSecrets(); // int — count of re-encrypted keys
 // Maintenance
 $provider->staleKeys();  // list<string> — stored keys without a definition
 $provider->pruneStale(); // int — number of removed stale rows
+$provider->sourceOf($key); // 'db'|'config'|'default' — source of the effective value, resolvable even when the value is invalid
 ```
 
 ### InvalidSettingRowException

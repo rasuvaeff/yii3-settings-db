@@ -272,7 +272,8 @@ when stale or invalid rows exist, so it can gate CI:
 Setting sources:
   mail.from                                db
   cache.ttl                                config
-Invalid stored value for "max.items": Invalid stored int for setting "max.items": got string
+  max.items                                db
+Invalid db value for "max.items": Invalid stored int for setting "max.items": got string
   debug.enabled                            default
 Stale stored keys (no definition; prune with settings:prune --apply):
   legacy.flag
@@ -284,6 +285,7 @@ The underlying provider operations are also callable directly:
 ```php
 $provider->staleKeys();  // list<string> — stored keys without a definition
 $provider->pruneStale(); // int — number of removed rows
+$provider->sourceOf($key); // 'db' | 'config' | 'default' — where the effective value comes from
 ```
 
 ### Public API
