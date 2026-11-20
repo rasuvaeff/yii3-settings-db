@@ -155,13 +155,7 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
         $definition = $this->definition($key);
         $row = $this->queryRow($key);
         $hasStoredOverride = $row !== null;
-
-        $source = 'default';
-        if ($hasStoredOverride) {
-            $source = 'db';
-        } elseif ($this->fallback !== null && $this->fallback->has($key)) {
-            $source = 'config';
-        }
+        $source = $this->resolveSource($key, $hasStoredOverride);
 
         $effectiveValue = null;
         if (!$definition->isSecret()) {
@@ -178,6 +172,20 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
             isSecret: $definition->isSecret(),
             isWritable: !$definition->readonly,
         );
+    }
+
+    /**
+     * Where the effective value of a defined key comes from: `db` (stored
+     * override), `config` (fallback provider) or `default`. Resolves the source
+     * only, never the value, so it works for keys whose value fails validation.
+     *
+     * @return 'db'|'config'|'default'
+     */
+    public function sourceOf(string $key): string
+    {
+        $this->definition($key);
+
+        return $this->resolveSource($key, $this->queryRow($key) !== null);
     }
 
     /**
@@ -431,6 +439,22 @@ final readonly class DbSettingsProvider implements WritableSettingsProvider, Set
         }
 
         return $this->definitions[$key];
+    }
+
+    /**
+     * @return 'db'|'config'|'default'
+     */
+    private function resolveSource(string $key, bool $hasStoredOverride): string
+    {
+        if ($hasStoredOverride) {
+            return 'db';
+        }
+
+        if ($this->fallback !== null && $this->fallback->has($key)) {
+            return 'config';
+        }
+
+        return 'default';
     }
 
     /**

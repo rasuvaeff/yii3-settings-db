@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Rasuvaeff\RectorNamedLiterals\AddNameToLiteralArgumentRector;
 use Rector\CodeQuality\Rector\Catch_\ThrowWithPreviousExceptionRector;
 use Rector\CodeQuality\Rector\Identical\FlipTypeControlToUseExclusiveTypeRector;
+use Rector\CodeQuality\Rector\If_\ExplicitNullableObjectInstanceRector;
 use Rector\Config\RectorConfig;
 
 return RectorConfig::configure()
@@ -21,6 +22,8 @@ return RectorConfig::configure()
     // reading worse at every place it appears.
     ->withSkip([
         FlipTypeControlToUseExclusiveTypeRector::class,
+        // Rector 2.8 deprecated the rule above and moved its job here.
+        ExplicitNullableObjectInstanceRector::class,
         // Every throw here already passes `previous:`; what the rule adds
         // on top is `code: $e->getCode()`, which changes the code a caught
         // InvalidSettingRowException carries. That is a behaviour change

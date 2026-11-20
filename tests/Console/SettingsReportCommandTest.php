@@ -6,6 +6,7 @@ namespace Rasuvaeff\Yii3SettingsDb\Tests\Console;
 
 use Rasuvaeff\Yii3Settings\Crypto\Cipher;
 use Rasuvaeff\Yii3Settings\SettingDefinition;
+use Rasuvaeff\Yii3Settings\SettingsProvider;
 use Rasuvaeff\Yii3Settings\SettingType;
 use Rasuvaeff\Yii3SettingsDb\Console\SettingsReportCommand;
 use Rasuvaeff\Yii3SettingsDb\DbSettingsProvider;
@@ -122,7 +123,10 @@ final class SettingsReportCommandTest
         );
 
         $expected = sprintf(
-            "Setting sources:\nInvalid stored value for \"%s\": %s\n%d problem(s) found.\n",
+            "Setting sources:\n  %-40s %s\nInvalid %s value for \"%s\": %s\n%d problem(s) found.\n",
+            'max.items',
+            'db',
+            'db',
             'max.items',
             'Invalid stored int for setting "max.items": got string',
             1,
@@ -159,8 +163,9 @@ final class SettingsReportCommandTest
 
         $display = $tester->getDisplay();
         $expected = sprintf(
-            "Setting sources:\n  %-40s %s\nInvalid stored value for \"%s\": %s\n%d problem(s) found.\n",
+            "Setting sources:\n  %-40s %s\nInvalid %s value for \"%s\": %s\n%d problem(s) found.\n",
             'api.key',
+            'db',
             'db',
             'api.key',
             'Failed to decrypt value',
@@ -224,7 +229,10 @@ final class SettingsReportCommandTest
         );
 
         $expected = sprintf(
-            "Setting sources:\nInvalid stored value for \"%s\": %s\n  %-40s %s\nStale stored keys (no definition; prune with settings:prune --apply):\n  %s\n%d problem(s) found.\n",
+            "Setting sources:\n  %-40s %s\nInvalid %s value for \"%s\": %s\n  %-40s %s\nStale stored keys (no definition; prune with settings:prune --apply):\n  %s\n%d problem(s) found.\n",
+            'max.items',
+            'db',
+            'db',
             'max.items',
             'Invalid stored int for setting "max.items": got string',
             'mail.from',
@@ -237,14 +245,52 @@ final class SettingsReportCommandTest
         Assert::same($tester->getDisplay(), $expected);
     }
 
+    public function labelsAnInvalidConfigValueByItsRealSource(): void
+    {
+        $fallback = new class implements SettingsProvider {
+            #[\Override]
+            public function has(string $key): bool
+            {
+                return true;
+            }
+
+            #[\Override]
+            public function get(string $key): mixed
+            {
+                throw new \UnexpectedValueException('Config value is not an int');
+            }
+        };
+
+        $tester = $this->runCommand(
+            definitions: [
+                'max.items' => new SettingDefinition(key: 'max.items', type: SettingType::Int, default: 10),
+            ],
+            fallback: $fallback,
+        );
+
+        $expected = sprintf(
+            "Setting sources:\n  %-40s %s\nInvalid %s value for \"%s\": %s\n%d problem(s) found.\n",
+            'max.items',
+            'config',
+            'config',
+            'max.items',
+            'Config value is not an int',
+            1,
+        );
+
+        Assert::same($tester->getStatusCode(), 1);
+        Assert::same($tester->getDisplay(), $expected);
+    }
+
     /**
      * @param array<string, SettingDefinition> $definitions
      */
-    private function runCommand(array $definitions, ?Cipher $cipher = null): CommandTester
+    private function runCommand(array $definitions, ?Cipher $cipher = null, ?SettingsProvider $fallback = null): CommandTester
     {
         $provider = new DbSettingsProvider(
             db: $this->db,
             definitions: $definitions,
+            fallback: $fallback,
             cipher: $cipher,
         );
 

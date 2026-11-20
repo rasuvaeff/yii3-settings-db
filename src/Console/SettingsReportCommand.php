@@ -12,7 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Reports the source of every defined setting (`db` / `config` / `default`),
- * stored keys without a definition (stale rows) and stored values that fail
+ * stored keys without a definition (stale rows) and values that fail
  * validation. Exits with failure when any problem is found, so it can gate CI.
  * Secret values are never printed.
  *
@@ -20,7 +20,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 #[AsCommand(
     name: 'settings:report',
-    description: 'Report setting sources, stale stored keys and invalid stored values',
+    description: 'Report setting sources, stale stored keys and invalid values',
 )]
 final class SettingsReportCommand extends Command
 {
@@ -38,28 +38,17 @@ final class SettingsReportCommand extends Command
         $output->writeln('Setting sources:');
 
         foreach ($this->settings->definedKeys() as $key) {
+            $source = $this->settings->sourceOf($key);
+            $output->writeln(sprintf('  %-40s %s', $key, $source));
+
             try {
-                $state = $this->settings->describe($key);
-            } catch (\Throwable $e) {
-                $problems++;
-                $output->writeln(sprintf('Invalid stored value for "%s": %s', $key, $e->getMessage()));
-
-                continue;
-            }
-
-            $output->writeln(sprintf('  %-40s %s', $state->key, $state->source));
-
-            if (!$state->isSecret) {
-                continue;
-            }
-
-            // describe() skips the value of secret settings; only decrypting
-            // them proves the stored envelope is intact
-            try {
+                // get() validates the value of every setting, secrets included
+                // (decryption proves the stored envelope is intact) — without
+                // printing it
                 $this->settings->get($key);
             } catch (\Throwable $e) {
                 $problems++;
-                $output->writeln(sprintf('Invalid stored value for "%s": %s', $key, $e->getMessage()));
+                $output->writeln(sprintf('Invalid %s value for "%s": %s', $source, $key, $e->getMessage()));
             }
         }
 
