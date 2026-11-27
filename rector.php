@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Rasuvaeff\RectorNamedLiterals\AddNameToLiteralArgumentRector;
 use Rector\CodeQuality\Rector\Catch_\ThrowWithPreviousExceptionRector;
-use Rector\CodeQuality\Rector\Identical\FlipTypeControlToUseExclusiveTypeRector;
 use Rector\CodeQuality\Rector\If_\ExplicitNullableObjectInstanceRector;
 use Rector\Config\RectorConfig;
 
@@ -21,7 +20,6 @@ return RectorConfig::configure()
     // qualified name inline, stating nothing the type declaration did not, and
     // reading worse at every place it appears.
     ->withSkip([
-        FlipTypeControlToUseExclusiveTypeRector::class,
         // Rector 2.8 deprecated the rule above and moved its job here.
         ExplicitNullableObjectInstanceRector::class,
         // Every throw here already passes `previous:`; what the rule adds
